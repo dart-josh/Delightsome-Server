@@ -63,7 +63,11 @@ const productionRequestSchema = new mongoose.Schema(
           ref: "Staff",
           required: true,
         },
-        time: { type: Date, default: Date.now },
+        time: { type: Date, default: function () {
+          const now = new Date();
+          now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+          return now;
+        }, },
       },
     ],
     viewed: {

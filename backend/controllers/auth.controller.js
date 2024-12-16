@@ -83,8 +83,9 @@ export const reset_password = async (req, res) => {
     }
 
     // delete password from database
-    staffExists.password = null;
-    await staffExists.save();
+    await Staff.updateOne({staffId}, 
+      {password: null}
+    );
 
     return res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
@@ -108,6 +109,8 @@ export const get_active_staff = async (req, res) => {
     if (!staffExists) {
       return res.status(500).json({ message: "Staff does not exist" });
     }
+
+    staffExists.password = undefined;
 
     return res.status(200).json({staff: staffExists, success: true});
   } catch (error) {
