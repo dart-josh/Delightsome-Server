@@ -33,7 +33,7 @@ export const get_all_customer = async (req, res) => {
 
 // Add/update staff
 export const add_update_staff = async (req, res) => {
-  const { id, staffId, fullname, nickName, role, fullaccess, backDate } =
+  const { id, staffId, fullname, nickName, role, fullaccess, backDate, active } =
     req.body;
 
   // verify fields
@@ -69,9 +69,11 @@ export const add_update_staff = async (req, res) => {
         role,
         fullaccess,
         backDate,
+        active,
       });
 
       staff.password = undefined;
+      staff.pin = undefined;
 
       res.json({ message: "Staff Created Successfully", staff });
     }
@@ -98,11 +100,13 @@ export const add_update_staff = async (req, res) => {
           role,
           fullaccess,
           backDate,
+          active,
         },
         { new: true },
       );
 
       staff.password = undefined;
+      staff.pin = undefined;
 
       //? emit
       io.emit(staffId);
