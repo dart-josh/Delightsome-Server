@@ -17,15 +17,16 @@ let connected_users = {};
 // ! FRONTEND - (video:- 4:04:00) - exact point (4:07.00)
 
 io.on("connection", (socket) => {
-  console.log("user connected", socket.id);
   // get staffId from socket
   const staffId = socket.handshake.query.staffId;
+
+  console.log("user connected", socket.id, staffId);
 
   // push new user with id to users
   if (!staffId) connected_users[staffId] = socket.id;
 
   socket.on("disconnect", () => {
-    console.log("user disconnected", socket.id);
+    console.log("user disconnected", socket.id, staffId);
     delete connected_users[staffId];
   });
 });

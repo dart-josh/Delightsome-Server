@@ -284,6 +284,32 @@ export const reset_password = async (req, res) => {
   }
 };
 
+// reset pin
+export const reset_pin = async (req, res) => {
+  const { id: staffId } = req.params;
+
+  if (!staffId) {
+    return res.status(500).json({ message: "Staff ID is required" });
+  }
+
+  try {
+    const staffExists = await Staff.findOne({ staffId });
+    if (!staffExists) {
+      return res.status(500).json({ message: "Invalid Staff ID" });
+    }
+
+    // delete pin from database
+    await Staff.updateOne({ staffId }, { pin: null });
+
+    return res.status(200).json({ message: "Pin reset successfully" });
+  } catch (error) {
+    console.log("Error in reset_pin: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
 // get active staff
 export const get_active_staff = async (req, res) => {
   const { id: staffId } = req.params;
