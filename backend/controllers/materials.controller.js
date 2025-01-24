@@ -10,6 +10,7 @@ import ProductMaterialsRequestRecord from "../models/materialModels/productMater
 import RawMaterialsRequestRecord from "../models/materialModels/rawMaterialsRequest.model.js";
 import { io } from "../socket/socket.js";
 import { nanoid } from "nanoid";
+import ProductMaterialsReturnRecord from "../models/materialModels/productMaterialsReturn.model.js";
 
 // ! GETTERS
 
@@ -649,6 +650,160 @@ export const get_selected_raw_materials_request_record = async (req, res) => {
   } catch (error) {
     console.log(
       "Error in get_selected_raw_materials_request_record controller:",
+      error.message,
+    );
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+// Get product materials return record
+export const get_product_materials_return_record = async (req, res) => {
+  // start
+  var localDate = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    new Date().getDate(),
+    new Date().getHours() + 1,
+    new Date().getMinutes(),
+    new Date().getSeconds(),
+    new Date().getMilliseconds(),
+  );
+
+  // end 3 months ago
+  var threeMonthAgo = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth() - 3,
+    1,
+  );
+
+  // convert date to local timezone
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+
+  threeMonthAgo.setMinutes(
+    threeMonthAgo.getMinutes() - threeMonthAgo.getTimezoneOffset(),
+  );
+
+  const query = {
+    $and: [
+      { recordDate: { $lte: localDate } },
+      { recordDate: { $gte: threeMonthAgo } },
+    ],
+  };
+
+  try {
+    const record = await ProductMaterialsReturnRecord.find(query)
+      .sort({ recordDate: -1 })
+      .populate({
+        path: "items.item",
+        select: ["itemName", "category"],
+      })
+      .populate({
+        path: "returnedBy",
+        select: ["nickName", "role", "staffId"],
+      })
+      .populate({
+        path: "editedBy.staff",
+        select: ["nickName", "role", "staffId"],
+      })
+      .populate({
+        path: "authorizedBy",
+        select: ["nickName", "role", "staffId"],
+      });
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_product_materials_return_record controller:",
+      error.message,
+    );
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+//? Get selected product materials return record
+export const get_selected_product_materials_return_record = async (
+  req,
+  res,
+) => {
+  const { timeFrame, month, date } = req.body;
+
+  let query = {};
+
+  let start;
+  let end;
+
+  if (date) {
+    query = {
+      $match: {
+        d: `${date}`,
+      },
+    };
+  } else if (month) {
+    query = {
+      $match: {
+        m: `${month}`,
+      },
+    };
+  } else if (timeFrame) {
+    if (!timeFrame || timeFrame.length < 2 || timeFrame.length > 2) {
+      return res.status(500).json({ message: "Invalid Entry" });
+    }
+
+    start = timeFrame[0];
+    end = timeFrame[1];
+
+    query = {
+      $match: { dr: true },
+    };
+  } else {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  try {
+    const record = await ProductMaterialsReturnRecord.aggregate([
+      {
+        $addFields: {
+          d: { $dateToString: { format: "%Y-%m-%d", date: "$recordDate" } },
+          m: { $dateToString: { format: "%Y-%m", date: "$recordDate" } },
+        },
+      },
+      {
+        $addFields: timeFrame
+          ? {
+              dr: { $and: [{ $gte: ["$d", start] }, { $lte: ["$d", end] }] },
+            }
+          : {},
+      },
+      { $match: { authorized: true } },
+      query,
+      { $sort: { recordDate: -1 } },
+    ]);
+
+    await Promise.all(
+      await ProductMaterialsReturnRecord.populate(record, {
+        path: "items.item",
+        select: ["itemName", "category"],
+      }),
+
+      await ProductMaterialsReturnRecord.populate(record, {
+        path: "returnedBy",
+        select: ["nickName", "role", "staffId"],
+      }),
+
+      await ProductMaterialsReturnRecord.populate(record, {
+        path: "editedBy.staff",
+        select: ["nickName", "role", "staffId"],
+      }),
+
+      await ProductMaterialsReturnRecord.populate(record, {
+        path: "authorizedBy",
+        select: ["nickName", "role", "staffId"],
+      }),
+    );
+    // console.log(record);
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_selected_product_materials_return_record controller:",
       error.message,
     );
     return res.status(500).send({ message: "Internal Server error" });
@@ -1797,6 +1952,228 @@ export const verify_raw_materials_request_record = async (req, res) => {
   }
 };
 
+//? Return product materials record
+export const enter_product_materials_return_record = async (req, res) => {
+  // get values from body
+  const { id, returnedBy, items, purpose, editedBy, date } = req.body;
+
+  // verify all fields
+  if (!returnedBy || !items || !date) {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  // check if date is valid
+  if (!new Date(date)) {
+    return res.status(500).json({ message: "Invalid Date" });
+  }
+
+  // verify date
+  if (new Date(date) > new Date()) {
+    return res.status(500).json({ message: "Invalid Date" });
+  }
+
+  const recordDate = new Date(date);
+
+  // convert date to local timezone
+  recordDate.setMinutes(
+    recordDate.getMinutes() - recordDate.getTimezoneOffset(),
+  );
+
+  // verify items
+  if (items.length < 1) {
+    return res.status(500).json({ message: "No Items" });
+  }
+
+  // Verfiy each item field
+  for (let i = 0; i < items.length; i++) {
+    if (!items[i].item || !items[i].quantity) {
+      return res.status(500).json({ message: "Invalid Item Entry" });
+    }
+
+    // check if id is valid
+    if (!mongoose.Types.ObjectId.isValid(items[i].item)) {
+      return res.status(500).json({ message: "Invalid Item found" });
+    }
+
+    // Check if item exist
+    const itemExists = await ProductMaterials.findById(items[i].item);
+    if (!itemExists) {
+      return res.status(500).json({ message: "Invalid Item Entry" });
+    }
+  }
+
+  try {
+    // if id is undefined CREATE
+    if (!id) {
+      const record = await ProductMaterialsReturnRecord.create({
+        returnedBy,
+        items,
+        purpose,
+        recordDate: recordDate.toISOString(),
+        recordId: generate_record_id(),
+      });
+
+      res.json({
+        message: "Product Materials Return Entry Submitted",
+        record,
+      });
+    }
+
+    // else UPDATE
+    else {
+      // check if id is valid
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(500).json({ message: "Record ID not valid" });
+      }
+
+      // Check if record exist
+      const recordFind = await ProductMaterialsReturnRecord.findById(id);
+      if (!recordFind) {
+        return res.status(500).json({ message: "Record does not exist" });
+      }
+
+      // Check if editedBy
+      if (!editedBy) {
+        return res.status(500).json({ message: "Invalid Entry" });
+      }
+
+      // Check if record is verified
+      if (recordFind.authorized) {
+        return res.status(500).json({ message: "Record authorized already" });
+      }
+
+      //  Edit record
+      const record = await ProductMaterialsReturnRecord.findOneAndUpdate(
+        { _id: id },
+        {
+          $set: {
+            returnedBy,
+            items,
+            purpose,
+            recordDate: recordDate.toISOString(),
+            isEdited: true,
+          },
+          $push: {
+            editedBy: {
+              staff: editedBy,
+            },
+          },
+        },
+        { new: true },
+      );
+      res.json({ message: "Product Materials Return Entry Updated", record });
+    }
+
+    //? emit
+    io.emit("ProductMaterialsReturnRecord");
+  } catch (error) {
+    console.log(
+      "Error in enter_product_materials_return_record: ",
+      error.message,
+    );
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+// Verify Return product materials record
+export const verify_product_materials_return_record = async (req, res) => {
+  const { id, authorizedBy } = req.body;
+
+  // verify all input
+  if (!id || !authorizedBy) {
+    return res.status(500).json({ message: "Invalid Verification" });
+  }
+
+  // check if id is valid
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(500).json({ message: "Record ID not valid" });
+  }
+
+  // Check if record exist
+  const record = await ProductMaterialsReturnRecord.findById(id);
+  if (!record) {
+    return res.status(500).json({ message: "Record does not exist" });
+  }
+
+  // Check if record is authorized
+  if (record.authorized) {
+    return res.status(500).json({ message: "Record authorized already" });
+  }
+
+  //  get items
+  const items = record.items;
+
+  // verify items
+  if (!items || items.length < 1) {
+    return res.status(500).json({ message: "Record contains No items" });
+  }
+
+  // verify each item
+  for (let index = 0; index < items.length; index++) {
+    const item = items[index];
+
+    if (!item.item || !item.quantity) {
+      return res.status(500).json({ message: "Invalid item found" });
+    }
+
+    // check if id is valid
+    if (!mongoose.Types.ObjectId.isValid(item.item)) {
+      return res.status(500).json({ message: "Invalid item found" });
+    }
+
+    // Check if item exist
+    const itemExists = await ProductMaterials.findById(item.item);
+    if (!itemExists) {
+      return res.status(500).json({ message: "Invalid item found" });
+    }
+  }
+
+  // Update all items (increase quantity)
+  for (let index = 0; index < items.length; index++) {
+    const item = items[index];
+    await update_product_materials_item_quantity(
+      item.item,
+      item.quantity,
+      true,
+    );
+  }
+
+  const date = new Date();
+  // convert date to local timezone
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+
+  // Update record
+  try {
+    const record = await ProductMaterialsReturnRecord.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          authorizedBy,
+          authorized: true,
+          authorizedDate: date,
+        },
+      },
+      { new: true },
+    );
+
+    //? emit
+    io.emit("ProductMaterials");
+    io.emit("ProductMaterialsReturnRecord");
+
+    res.json({ message: "Product Materials Return Entry Authorized", record });
+  } catch (error) {
+    console.log(
+      "Error in verify_product_materials_return_record: ",
+      error.message,
+    );
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
 // Add/Update product materials categories
 export const add_update_product_materials_category = async (req, res) => {
   const { id, category, sort } = req.body;
@@ -2301,6 +2678,71 @@ export const delete_raw_materials_request_record = async (req, res) => {
   } catch (error) {
     console.log(
       "Error in delete_raw_materials_request_record: ",
+      error.message,
+    );
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+// Delete product materials return record
+export const delete_product_materials_return_record = async (req, res) => {
+  const { id } = req.params;
+  const { isAllowed } = req.body;
+
+  if (!id) {
+    return res.status(500).json({ message: "Record ID required" });
+  }
+
+  // check if id is valid
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(500).json({ message: "Record ID not valid" });
+  }
+
+  // Check if record exist
+  const record = await ProductMaterialsReturnRecord.findById(id);
+  if (!record) {
+    return res.status(500).json({ message: "Record does not exist" });
+  }
+
+  // check if record is authorized
+  if (record.authorized) {
+    // Check is user is permitted
+    if (!isAllowed) {
+      return res.status(500).json({ message: "Unathorized to Delete" });
+    }
+
+    // User allowed to delete
+    else {
+      const items = record.items;
+
+      // Update all items (decrease quantity)
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index];
+        await update_product_materials_item_quantity(
+          item.item,
+          item.quantity,
+          false,
+        );
+      }
+
+      //? emit
+      io.emit("ProductMaterials");
+    }
+  }
+
+  // delete record
+  try {
+    await ProductMaterialsReturnRecord.findByIdAndDelete(id);
+
+    res.json({ message: "Record deleted Sucessfully" });
+
+    //? emit
+    io.emit("ProductMaterialsReturnRecord");
+  } catch (error) {
+    console.log(
+      "Error in delete_product_materials_return_record: ",
       error.message,
     );
     res
