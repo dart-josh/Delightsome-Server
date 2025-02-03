@@ -140,7 +140,7 @@ export const check_password = async (req, res) => {
     staffExists.password = undefined;
 
     // login
-    return res.status(200).json({ message: "Login Valid", mode: 0, role: staffExists.role, pin: staffExists.pin});
+    return res.status(200).json({ message: "Login Valid", mode: 0, role: staffExists.role});
   } catch (error) {
     console.log("Error in check_password: ", error.message);
     res
@@ -325,6 +325,7 @@ export const get_active_staff = async (req, res) => {
     }
 
     staffExists.password = undefined;
+    stafffExidefined;
 
     return res.status(200).json({ staff: staffExists, success: true });
   } catch (error) {

@@ -10,7 +10,7 @@ import { io } from "../socket/socket.js";
 // get staff
 export const get_all_staff = async (req, res) => {
   try {
-    const staffs = await Staff.find({}).select("-password");
+    const staffs = await Staff.find({}).select("-password").select("-pin");
     res.json({ staffs });
   } catch (error) {
     console.log("Error in get_all_staff controller:", error.message);
