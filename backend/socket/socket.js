@@ -20,13 +20,13 @@ io.on("connection", (socket) => {
   // get staffId from socket
   const staffId = socket.handshake.query.staffId;
 
-  console.log("user connected", socket.id, staffId);
+  // console.log("user connected", socket.id, staffId);
 
   // push new user with id to users
   if (!staffId) connected_users[staffId] = socket.id;
 
   socket.on("disconnect", () => {
-    console.log("user disconnected", socket.id, staffId);
+    // console.log("user disconnected", socket.id, staffId);
     delete connected_users[staffId];
   });
 });

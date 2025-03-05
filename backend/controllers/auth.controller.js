@@ -325,7 +325,7 @@ export const get_active_staff = async (req, res) => {
     }
 
     staffExists.password = undefined;
-    stafffExidefined;
+    staffExists.pin = undefined;
 
     return res.status(200).json({ staff: staffExists, success: true });
   } catch (error) {
