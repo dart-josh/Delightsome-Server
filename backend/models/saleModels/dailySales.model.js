@@ -36,6 +36,14 @@ const dailySalesSchema = new mongoose.Schema(
           type: Number,
           default: 0,
         },
+        takeOut: {
+          type: Number,
+          default: 0,
+        },
+        return: {
+          type: Number,
+          default: 0,
+        },
         terminalCollected: {
           type: Number,
           default: 0,

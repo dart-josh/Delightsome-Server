@@ -13,6 +13,8 @@ import TerminalCollectionRecord from "../models/storeModels/terminalCollection.m
 import ProductCategory from "../models/storeModels/productCategory.model.js";
 import { io } from "../socket/socket.js";
 import { nanoid } from "nanoid";
+import ProductTakeOut from "../models/storeModels/productTakeOut.model.js";
+import ProductReturn from "../models/storeModels/productReturn.model.js";
 
 // ! GETTERS
 
@@ -481,6 +483,306 @@ export const get_selected_product_request_record = async (req, res) => {
   } catch (error) {
     console.log(
       "Error in get_selected_product_request_record controller:",
+      error.message,
+    );
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+// Get product takeOut record
+export const get_product_takeOut_record = async (req, res) => {
+  var localDate = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    new Date().getDate(),
+    new Date().getHours() + 1,
+    new Date().getMinutes(),
+    new Date().getSeconds(),
+    new Date().getMilliseconds(),
+  );
+
+  // end 3 months ago
+  var threeMonthAgo = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth() - 3,
+    1,
+  );
+
+  // convert date to local timezone
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+
+  threeMonthAgo.setMinutes(
+    threeMonthAgo.getMinutes() - threeMonthAgo.getTimezoneOffset(),
+  );
+
+  const query = {
+    $and: [
+      { recordDate: { $lte: localDate } },
+      { recordDate: { $gte: threeMonthAgo } },
+    ],
+  };
+
+  try {
+    const record = await ProductTakeOut.find(query)
+      .sort({ recordDate: -1 })
+      .populate({
+        path: "products.product",
+        select: ["name", "code", "category", "sort"],
+      })
+      .populate({
+        path: "takenBy",
+        select: ["nickName", "role", "staffId"],
+      })
+      .populate({
+        path: "editedBy.staff",
+        select: ["nickName", "role", "staffId"],
+      })
+      .populate({
+        path: "verifiedBy",
+        select: ["nickName", "role", "staffId"],
+      });
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_product_takeOut_record controller:",
+      error.message,
+    );
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+//? Get selected product takeOut record
+export const get_selected_product_takeOut_record = async (req, res) => {
+  const { timeFrame, month, date } = req.body;
+
+  let query = {};
+
+  let start;
+  let end;
+
+  if (date) {
+    query = {
+      $match: {
+        d: `${date}`,
+      },
+    };
+  } else if (month) {
+    query = {
+      $match: {
+        m: `${month}`,
+      },
+    };
+  } else if (timeFrame) {
+    if (!timeFrame || timeFrame.length < 2 || timeFrame.length > 2) {
+      return res.status(500).json({ message: "Invalid Entry" });
+    }
+
+    start = timeFrame[0];
+    end = timeFrame[1];
+
+    query = {
+      $match: { dr: true },
+    };
+  } else {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  try {
+    const record = await ProductTakeOut.aggregate([
+      {
+        $addFields: {
+          d: { $dateToString: { format: "%Y-%m-%d", date: "$recordDate" } },
+          m: { $dateToString: { format: "%Y-%m", date: "$recordDate" } },
+        },
+      },
+      {
+        $addFields: timeFrame
+          ? {
+              dr: { $and: [{ $gte: ["$d", start] }, { $lte: ["$d", end] }] },
+            }
+          : {},
+      },
+      { $match: { verified: true } },
+      query,
+      { $sort: { recordDate: -1 } },
+    ]);
+
+    await Promise.all(
+      await ProductTakeOut.populate(record, {
+        path: "products.product",
+        select: ["name", "code", "category", "sort"],
+      }),
+
+      await ProductTakeOut.populate(record, {
+        path: "takenBy",
+        select: ["nickName", "role", "staffId"],
+      }),
+
+      await ProductTakeOut.populate(record, {
+        path: "editedBy.staff",
+        select: ["nickName", "role", "staffId"],
+      }),
+
+      await ProductTakeOut.populate(record, {
+        path: "verifiedBy",
+        select: ["nickName", "role", "staffId"],
+      }),
+    );
+
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_selected_product_takeOut_record controller:",
+      error.message,
+    );
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+// Get product return record
+export const get_product_return_record = async (req, res) => {
+  var localDate = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    new Date().getDate(),
+    new Date().getHours() + 1,
+    new Date().getMinutes(),
+    new Date().getSeconds(),
+    new Date().getMilliseconds(),
+  );
+
+  // end 3 months ago
+  var threeMonthAgo = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth() - 3,
+    1,
+  );
+
+  // convert date to local timezone
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+
+  threeMonthAgo.setMinutes(
+    threeMonthAgo.getMinutes() - threeMonthAgo.getTimezoneOffset(),
+  );
+
+  const query = {
+    $and: [
+      { recordDate: { $lte: localDate } },
+      { recordDate: { $gte: threeMonthAgo } },
+    ],
+  };
+
+  try {
+    const record = await ProductReturn.find(query)
+      .sort({ recordDate: -1 })
+      .populate({
+        path: "products.product",
+        select: ["name", "code", "category", "sort"],
+      })
+      .populate({
+        path: "returnedBy",
+        select: ["nickName", "role", "staffId"],
+      })
+      .populate({
+        path: "editedBy.staff",
+        select: ["nickName", "role", "staffId"],
+      })
+      .populate({
+        path: "verifiedBy",
+        select: ["nickName", "role", "staffId"],
+      });
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_product_return_record controller:",
+      error.message,
+    );
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+//? Get selected product return record
+export const get_selected_product_return_record = async (req, res) => {
+  const { timeFrame, month, date } = req.body;
+
+  let query = {};
+
+  let start;
+  let end;
+
+  if (date) {
+    query = {
+      $match: {
+        d: `${date}`,
+      },
+    };
+  } else if (month) {
+    query = {
+      $match: {
+        m: `${month}`,
+      },
+    };
+  } else if (timeFrame) {
+    if (!timeFrame || timeFrame.length < 2 || timeFrame.length > 2) {
+      return res.status(500).json({ message: "Invalid Entry" });
+    }
+
+    start = timeFrame[0];
+    end = timeFrame[1];
+
+    query = {
+      $match: { dr: true },
+    };
+  } else {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  try {
+    const record = await ProductReturn.aggregate([
+      {
+        $addFields: {
+          d: { $dateToString: { format: "%Y-%m-%d", date: "$recordDate" } },
+          m: { $dateToString: { format: "%Y-%m", date: "$recordDate" } },
+        },
+      },
+      {
+        $addFields: timeFrame
+          ? {
+              dr: { $and: [{ $gte: ["$d", start] }, { $lte: ["$d", end] }] },
+            }
+          : {},
+      },
+      { $match: { verified: true } },
+      query,
+      { $sort: { recordDate: -1 } },
+    ]);
+
+    await Promise.all(
+      await ProductReturn.populate(record, {
+        path: "products.product",
+        select: ["name", "code", "category", "sort"],
+      }),
+
+      await ProductReturn.populate(record, {
+        path: "returnedBy",
+        select: ["nickName", "role", "staffId"],
+      }),
+
+      await ProductReturn.populate(record, {
+        path: "editedBy.staff",
+        select: ["nickName", "role", "staffId"],
+      }),
+
+      await ProductReturn.populate(record, {
+        path: "verifiedBy",
+        select: ["nickName", "role", "staffId"],
+      }),
+    );
+
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_selected_product_return_record controller:",
       error.message,
     );
     return res.status(500).send({ message: "Internal Server error" });
@@ -1631,6 +1933,486 @@ export const verify_product_request_record = async (req, res) => {
   }
 };
 
+//? Enter product takeOut record
+export const enter_product_takeOut_record = async (req, res) => {
+  // get values from body
+  const { id, takenBy, products, shortNote, editedBy, date } = req.body;
+
+  // verify all fields
+  if (!takenBy || !products || !date) {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  // check if date is valid
+  if (!new Date(date)) {
+    return res.status(500).json({ message: "Invalid Date" });
+  }
+
+  // verify date
+  if (new Date(date) > new Date()) {
+    return res.status(500).json({ message: "Invalid Date" });
+  }
+
+  const recordDate = new Date(date);
+
+  // convert date to local timezone
+  recordDate.setMinutes(
+    recordDate.getMinutes() - recordDate.getTimezoneOffset(),
+  );
+
+  // verify products
+  if (products.length < 1) {
+    return res.status(500).json({ message: "No Products" });
+  }
+
+  // Verfiy each product field
+  for (let i = 0; i < products.length; i++) {
+    if (!products[i].product || !products[i].quantity) {
+      return res.status(500).json({ message: "Invalid Product Entry" });
+    }
+
+    // check if id is valid
+    if (!mongoose.Types.ObjectId.isValid(products[i].product)) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+
+    // Check if product exist
+    const productExists = await Product.findById(products[i].product);
+    if (!productExists) {
+      return res.status(500).json({ message: "Invalid Product Entry" });
+    }
+  }
+
+  // get total quantity
+  const totalQuantity = products.reduce((acc, product) => {
+    return acc + product.quantity;
+  }, 0);
+
+  try {
+    // if id is undefined CREATE
+    if (!id) {
+      const record = await ProductTakeOut.create({
+        takenBy,
+        products,
+        shortNote,
+        totalQuantity,
+        recordDate: recordDate.toISOString(),
+        recordId: generate_record_id(),
+      });
+
+      res.json({ message: "Product TakeOut Entry Submitted", record });
+    }
+
+    // else UPDATE
+    else {
+      // check if id is valid
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(500).json({ message: "Record ID not valid" });
+      }
+
+      // Check if record exist
+      const recordFind = await ProductTakeOut.findById(id);
+      if (!recordFind) {
+        return res.status(500).json({ message: "Record does not exist" });
+      }
+
+      // Check if editedBy
+      if (!editedBy) {
+        return res.status(500).json({ message: "Invalid Entry" });
+      }
+
+      // Check if record is verified
+      if (recordFind.verified) {
+        return res.status(500).json({ message: "Record verified already" });
+      }
+
+      //  Edit record
+      const record = await ProductTakeOut.findOneAndUpdate(
+        { _id: id },
+        {
+          $set: {
+            takenBy,
+            products,
+            shortNote,
+            totalQuantity,
+            recordDate: recordDate.toISOString(),
+            isEdited: true,
+          },
+          $push: {
+            editedBy: {
+              staff: editedBy,
+            },
+          },
+        },
+        { new: true },
+      );
+      res.json({ message: "Product TakeOut Entry Updated", record });
+    }
+
+    //? emit
+    io.emit("ProductTakeOut");
+  } catch (error) {
+    console.log("Error in enter_product_takeOut_record: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+// Verify product takeOut record
+export const verify_product_takeOut_record = async (req, res) => {
+  const { id, verifiedBy } = req.body;
+
+  // verify all input
+  if (!id || !verifiedBy) {
+    return res.status(500).json({ message: "Invalid Verification" });
+  }
+
+  // check if id is valid
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(500).json({ message: "Record ID not valid" });
+  }
+
+  // Check if record exist
+  const record = await ProductTakeOut.findById(id);
+  if (!record) {
+    return res.status(500).json({ message: "Record does not exist" });
+  }
+
+  // Check if record is verified
+  if (record.verified) {
+    return res.status(500).json({ message: "Record verified already" });
+  }
+
+  //  get products
+  const products = record.products;
+
+  // verify products
+  if (!products || products.length < 1) {
+    return res.status(500).json({ message: "Record contains No products" });
+  }
+
+  // verify each product
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+
+    if (!product.product || !product.quantity) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+
+    // check if id is valid
+    if (!mongoose.Types.ObjectId.isValid(product.product)) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+
+    // Check if product exist
+    const productExists = await Product.findById(product.product);
+    if (!productExists) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+  }
+
+  // map products for daily record update
+  const daily_rec_products = products.map((product) => {
+    return {
+      id: product.product,
+      quantity: product.quantity,
+    };
+  });
+
+  // update daily record ( takeOut )
+  try {
+    const response = await enter_daily_sales_record({
+      date: record.recordDate.toISOString(),
+      field: "takeOut",
+      products: daily_rec_products,
+    });
+
+    if (response.error) {
+      return res.status(500).json({ message: response.error, error: response.error });
+    }
+  } catch (error) {
+    console.log("Error in enter_daily_sales_record: ", error);
+    return res.status(500).json({ message: error, error: error });
+  }
+
+  // Update all products (decrease quantity)
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+    await update_product_quantity(product.product, product.quantity, false);
+  }
+
+  const date = new Date();
+  // convert date to local timezone
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+
+  // Update record
+  try {
+    const record = await ProductTakeOut.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          verifiedBy,
+          verified: true,
+          verifiedDate: date,
+        },
+      },
+      { new: true },
+    );
+
+    //? emit
+    io.emit("Product");
+    io.emit("ProductTakeOut");
+
+    res.json({ message: "Product TakeOut Entry Verified", record });
+  } catch (error) {
+    console.log("Error in verify_product_takeOut_record: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+//? Enter product return record
+export const enter_product_return_record = async (req, res) => {
+  // get values from body
+  const { id, returnedBy, products, shortNote, editedBy, date } = req.body;
+
+  // verify all fields
+  if (!returnedBy || !products || !date) {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  // check if date is valid
+  if (!new Date(date)) {
+    return res.status(500).json({ message: "Invalid Date" });
+  }
+
+  // verify date
+  if (new Date(date) > new Date()) {
+    return res.status(500).json({ message: "Invalid Date" });
+  }
+
+  const recordDate = new Date(date);
+
+  // convert date to local timezone
+  recordDate.setMinutes(
+    recordDate.getMinutes() - recordDate.getTimezoneOffset(),
+  );
+
+  // verify products
+  if (products.length < 1) {
+    return res.status(500).json({ message: "No Products" });
+  }
+
+  // Verfiy each product field
+  for (let i = 0; i < products.length; i++) {
+    if (!products[i].product || !products[i].quantity) {
+      return res.status(500).json({ message: "Invalid Product Entry" });
+    }
+
+    // check if id is valid
+    if (!mongoose.Types.ObjectId.isValid(products[i].product)) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+
+    // Check if product exist
+    const productExists = await Product.findById(products[i].product);
+    if (!productExists) {
+      return res.status(500).json({ message: "Invalid Product Entry" });
+    }
+  }
+
+  // get total quantity
+  const totalQuantity = products.reduce((acc, product) => {
+    return acc + product.quantity;
+  }, 0);
+
+  try {
+    // if id is undefined CREATE
+    if (!id) {
+      const record = await ProductReturn.create({
+        returnedBy,
+        products,
+        shortNote,
+        totalQuantity,
+        recordDate: recordDate.toISOString(),
+        recordId: generate_record_id(),
+      });
+
+      res.json({ message: "Product Return Entry Submitted", record });
+    }
+
+    // else UPDATE
+    else {
+      // check if id is valid
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(500).json({ message: "Record ID not valid" });
+      }
+
+      // Check if product exist
+      const recordFind = await ProductReturn.findById(id);
+      if (!recordFind) {
+        return res.status(500).json({ message: "Record does not exist" });
+      }
+
+      // Check if editedBy
+      if (!editedBy) {
+        return res.status(500).json({ message: "Invalid Entry" });
+      }
+
+      // Check if record is verified
+      if (recordFind.verified) {
+        return res.status(500).json({ message: "Record verified already" });
+      }
+
+      //  Edit record
+      const record = await ProductReturn.findOneAndUpdate(
+        { _id: id },
+        {
+          $set: {
+            returnedBy,
+            products,
+            shortNote,
+            totalQuantity,
+            recordDate: recordDate.toISOString(),
+            isEdited: true,
+          },
+          $push: {
+            editedBy: {
+              staff: editedBy,
+            },
+          },
+        },
+        { new: true },
+      );
+      res.json({ message: "Product Return Entry Updated", record });
+    }
+
+    //? emit
+    io.emit("ProductReturn");
+  } catch (error) {
+    console.log("Error in enter_product_return_record: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+// Verify product_return record
+export const verify_product_return_record = async (req, res) => {
+  const { id, verifiedBy } = req.body;
+
+  // verify all input
+  if (!id || !verifiedBy) {
+    return res.status(500).json({ message: "Invalid Verification" });
+  }
+
+  // check if id is valid
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(500).json({ message: "Record ID not valid" });
+  }
+
+  // Check if record exist
+  const record = await ProductReturn.findById(id);
+  if (!record) {
+    return res.status(500).json({ message: "Record does not exist" });
+  }
+
+  // Check if record is verified
+  if (record.verified) {
+    return res.status(500).json({ message: "Record verified already" });
+  }
+
+  //  get products
+  const products = record.products;
+
+  // verify products
+  if (!products || products.length < 1) {
+    return res.status(500).json({ message: "Record contains No products" });
+  }
+
+  // verify each product
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+
+    if (!product.product || !product.quantity) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+
+    // check if id is valid
+    if (!mongoose.Types.ObjectId.isValid(product.product)) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+
+    // Check if product exist
+    const productExists = await Product.findById(product.product);
+    if (!productExists) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+  }
+
+  // map products for daily record update
+  const daily_rec_products = products.map((product) => {
+    return {
+      id: product.product,
+      quantity: product.quantity,
+    };
+  });
+
+  // update daily record ( return )
+  try {
+    const response = await enter_daily_sales_record({
+      date: record.recordDate.toISOString(),
+      field: "return",
+      products: daily_rec_products,
+    });
+
+    if (response.error) {
+      return res.status(500).json({ message: response.error, error: response.error });
+    }
+  } catch (error) {
+    console.log("Error in enter_daily_sales_record: ", error);
+    return res.status(500).json({ message: error, error: error });
+  }
+
+  // Update all products (increase quantity)
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+    await update_product_quantity(product.product, product.quantity, true);
+  }
+
+  const date = new Date();
+  // convert date to local timezone
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+
+  // Update record
+  try {
+    const record = await ProductReturn.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          verifiedBy,
+          verified: true,
+          verifiedDate: date,
+        },
+      },
+      { new: true },
+    );
+
+    //? emit
+    io.emit("Product");
+    io.emit("ProductReturn");
+
+    res.json({ message: "Product Return Entry Verified", record });
+  } catch (error) {
+    console.log("Error in verify_product_return_record: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
 //? Enter bad product record
 export const enter_bad_product_record = async (req, res) => {
   const { id, staffResponsible, products, shortNote, editedBy, date } =
@@ -2518,6 +3300,172 @@ export const delete_product_request_record = async (req, res) => {
     res.json({ message: "Record deleted Sucessfully" });
   } catch (error) {
     console.log("Error in delete_product_request_record: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+// Delete product takeOut record
+export const delete_product_takeOut_record = async (req, res) => {
+  const { id } = req.params;
+  const { isAllowed } = req.body;
+
+  if (!id) {
+    return res.status(500).json({ message: "Record ID required" });
+  }
+
+  // check if id is valid
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(500).json({ message: "Record ID not valid" });
+  }
+
+  // Check if record exist
+  const record = await ProductTakeOut.findById(id);
+  if (!record) {
+    return res.status(500).json({ message: "Record does not exist" });
+  }
+
+  // check if record is verified
+  if (record.verified) {
+    const products = record.products;
+    // Check is user is permitted
+    if (!isAllowed) {
+      return res.status(500).json({ message: "Unathorized to Delete" });
+    }
+
+    // User allowed to delete
+    else {
+      // map products for daily record update
+      const daily_rec_products = products.map((product) => {
+        return {
+          id: product.product,
+          quantity: -product.quantity,
+        };
+      });
+
+      // update daily record ( takeOut )
+      try {
+        const response = await enter_daily_sales_record({
+          date: record.recordDate.toISOString(),
+          field: "takeOut",
+          products: daily_rec_products,
+        });
+
+        if (response.error) {
+          return res.status(500).json({ message: response.error, error: response.error });
+        }
+      } catch (error) {
+        console.log("Error in enter_daily_sales_record: ", error);
+        return res
+          .status(500)
+          .json({ message: error, error: error });
+      }
+
+      // Update all products (increase quantity)
+      for (let index = 0; index < products.length; index++) {
+        const product = products[index];
+        await update_product_quantity(product.product, product.quantity, true);
+      }
+
+      //? emit
+      io.emit("Product");
+    }
+  }
+
+  // delete record
+  try {
+    await ProductTakeOut.findByIdAndDelete(id);
+
+    //? emit
+    io.emit("ProductTakeOut");
+
+    res.json({ message: "Record deleted Sucessfully" });
+  } catch (error) {
+    console.log("Error in delete_product_takeOut_record: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+// Delete product return record
+export const delete_product_return_record = async (req, res) => {
+  const { id } = req.params;
+  const { isAllowed } = req.body;
+
+  if (!id) {
+    return res.status(500).json({ message: "Record ID required" });
+  }
+
+  // check if id is valid
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(500).json({ message: "Record ID not valid" });
+  }
+
+  // Check if record exist
+  const record = await ProductReturn.findById(id);
+  if (!record) {
+    return res.status(500).json({ message: "Record does not exist" });
+  }
+
+  // check if record is verified
+  if (record.verified) {
+    const products = record.products;
+    // Check is user is permitted
+    if (!isAllowed) {
+      return res.status(500).json({ message: "Unathorized to Delete" });
+    }
+
+    // User allowed to delete
+    else {
+      // map products for daily record update
+      const daily_rec_products = products.map((product) => {
+        return {
+          id: product.product,
+          quantity: -product.quantity,
+        };
+      });
+
+      // update daily record ( return )
+      try {
+        const response = await enter_daily_sales_record({
+          date: record.recordDate.toISOString(),
+          field: "return",
+          products: daily_rec_products,
+        });
+
+        if (response.error) {
+          return res.status(500).json({ message: response.error, error: response.error });
+        }
+      } catch (error) {
+        console.log("Error in enter_daily_sales_record: ", error);
+        return res
+          .status(500)
+          .json({ message: error, error: error });
+      }
+
+      // Update all products (decrease quantity)
+      for (let index = 0; index < products.length; index++) {
+        const product = products[index];
+        await update_product_quantity(product.product, product.quantity, false);
+      }
+
+      //? emit
+      io.emit("Product");
+    }
+  }
+
+  // delete record
+  try {
+    await ProductReturn.findByIdAndDelete(id);
+
+    //? emit
+    io.emit("ProductReturn");
+
+    res.json({ message: "Record deleted Sucessfully" });
+  } catch (error) {
+    console.log("Error in delete_product_return_record: ", error.message);
     res
       .status(500)
       .json({ message: "Internal Server error", error: error.message });

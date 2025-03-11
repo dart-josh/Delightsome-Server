@@ -20,6 +20,8 @@ import {
 import mongoose from "mongoose";
 import { nanoid } from "nanoid";
 import { io } from "../socket/socket.js";
+import ProductTakeOut from "../models/storeModels/productTakeOut.model.js";
+import ProductReturn from "../models/storeModels/productReturn.model.js";
 
 // ! GETTERS
 
@@ -55,7 +57,7 @@ export const get_sales_record = async (req, res) => {
       { recordDate: { $lte: localDate } },
       { recordDate: { $gte: threeMonthAgo } },
     ],
-  }; 
+  };
 
   try {
     const record = await SalesRecord.find(query)
@@ -111,8 +113,7 @@ export const get_terminal_sales_record = async (req, res) => {
       { recordDate: { $lte: localDate } },
       { recordDate: { $gte: threeMonthAgo } },
     ],
-  }; 
-
+  };
 
   try {
     const record = await TerminalSalesRecord.find(query)
@@ -633,7 +634,9 @@ export const enter_new_sale = async (req, res) => {
     });
 
     if (response.error) {
-      return res.status(500).json({ message: response.error, error: response.error });
+      return res
+        .status(500)
+        .json({ message: response.error, error: response.error });
     }
   } catch (error) {
     console.log("Error in enter_daily_sales_record: ", error);
@@ -781,7 +784,9 @@ export const enter_new_terminal_sale = async (req, res) => {
     });
 
     if (response.error) {
-      return res.status(500).json({ message: response.error, error: response.error });
+      return res
+        .status(500)
+        .json({ message: response.error, error: response.error });
     }
   } catch (error) {
     console.log("Error in enter_terminal_daily_sales_record: ", error);
@@ -875,7 +880,9 @@ export const delete_sale_record = async (req, res) => {
     });
 
     if (response.error) {
-      return res.status(500).json({ message: response.error, error: response.error });
+      return res
+        .status(500)
+        .json({ message: response.error, error: response.error });
     }
   } catch (error) {
     console.log("Error in enter_daily_sales_record: ", error);
@@ -950,7 +957,9 @@ export const delete_terminal_sale_record = async (req, res) => {
     });
 
     if (response.error) {
-      return res.status(500).json({ message: response.error, error: response.error });
+      return res
+        .status(500)
+        .json({ message: response.error, error: response.error });
     }
   } catch (error) {
     console.log("Error in enter_terminal_daily_sales_record: ", error);
@@ -1011,6 +1020,8 @@ export const enter_daily_sales_record = async ({ date, field, products }) => {
   if (
     field !== "added" &&
     field !== "request" &&
+    field !== "takeOut" &&
+    field !== "return" &&
     field !== "terminalCollected" &&
     field !== "terminalReturn" &&
     field !== "badProduct" &&
@@ -1161,7 +1172,7 @@ export const enter_terminal_daily_sales_record = async ({
   return { message: "Terminal Daily Record updated" };
 };
 
-// Open daily sales record  
+// Open daily sales record
 export const open_daily_sales_record = async (date) => {
   //? check all record for no existing previous record
 
@@ -1173,7 +1184,7 @@ export const open_daily_sales_record = async (date) => {
     },
     {
       $addFields: {
-        not_today: { $lt: [ "$d", date ] },
+        not_today: { $lt: ["$d", date] },
       },
     },
     { $match: { verified: false } },
@@ -1181,36 +1192,49 @@ export const open_daily_sales_record = async (date) => {
   ];
 
   // ProductionRecord
-  const production_record  = await ProductionRecord.aggregate(agg_find);
+  const production_record = await ProductionRecord.aggregate(agg_find);
 
   if (production_record.length > 0) {
-    return { error: 'Pending Production record' };
+    return { error: "Pending Production record" };
   }
 
   // ProductReceived
-  const product_received  = await ProductReceived.aggregate(agg_find);
+  const product_received = await ProductReceived.aggregate(agg_find);
   if (product_received.length > 0) {
-    return { error: 'Pending Product Received record' };
+    return { error: "Pending Product Received record" };
   }
-  
+
   // ProductRequest
-  const product_request  = await ProductRequest.aggregate(agg_find);
+  const product_request = await ProductRequest.aggregate(agg_find);
   if (product_request.length > 0) {
-    return { error: 'Pending Product Request record' };
+    return { error: "Pending Product Request record" };
   }
-  
+
+  // ProductTakeOut
+  const product_takeOut = await ProductTakeOut.aggregate(agg_find);
+  if (product_takeOut.length > 0) {
+    return { error: "Pending Product TakeOut record" };
+  }
+
+  // ProductReturn
+  const product_return = await ProductReturn.aggregate(agg_find);
+  if (product_return.length > 0) {
+    return { error: "Pending Product Return record" };
+  }
+
   // BadProduct
-  const bad_product  = await BadProduct.aggregate(agg_find);
+  const bad_product = await BadProduct.aggregate(agg_find);
   if (bad_product.length > 0) {
-    return { error: 'Pending Bad Product record' };
+    return { error: "Pending Bad Product record" };
   }
-  
+
   // TerminalCollectionRecord
-  const terminalCollection_record  = await TerminalCollectionRecord.aggregate(agg_find);
+  const terminalCollection_record =
+    await TerminalCollectionRecord.aggregate(agg_find);
   if (terminalCollection_record.length > 0) {
-    return { error: 'Pending Terminal Collection record' };
+    return { error: "Pending Terminal Collection record" };
   }
-  
+
   const db_products = await get_all_products();
 
   const products = db_products.map((product) => {
@@ -1281,6 +1305,10 @@ const get_query_from_field = (field, quantity) => {
       return { "products.$.added": quantity };
     case "request":
       return { "products.$.request": quantity };
+    case "takeOut":
+      return { "products.$.takeOut": quantity };
+    case "return":
+      return { "products.$.return": quantity };
     case "terminalCollected":
       return { "products.$.terminalCollected": quantity };
     case "terminalReturn":
@@ -1308,6 +1336,18 @@ const get_value_from_field = (field, quantity, product) => {
         product: product.id,
         openingQuantity: product.quantity,
         request: quantity,
+      };
+    case "takeOut":
+      return {
+        product: product.id,
+        openingQuantity: product.quantity,
+        takeOut: quantity,
+      };
+    case "return":
+      return {
+        product: product.id,
+        openingQuantity: product.quantity,
+        return: quantity,
       };
     case "terminalCollected":
       return {
