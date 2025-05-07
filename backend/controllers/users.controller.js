@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 import Staff from "../models/userModels/staff.model.js";
 import Customer from "../models/userModels/customer.model.js";
-
 import { io } from "../socket/socket.js";
 
 // ! GETTERS
