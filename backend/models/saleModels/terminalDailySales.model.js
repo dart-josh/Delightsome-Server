@@ -48,3 +48,8 @@ export const TerminalDailySalesRecord = mongoose.model(
   "TerminalDailySalesRecord",
   terminalDailySalesSchema,
 );
+
+export const DangoteDailySalesRecord = mongoose.model(
+  "DangoteDailySalesRecord",
+  terminalDailySalesSchema,
+);

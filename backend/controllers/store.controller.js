@@ -4,17 +4,19 @@ import mongoose from "mongoose";
 import ProductionRecord from "../models/storeModels/productionRecord.model.js";
 import {
   enter_daily_sales_record,
+  enter_dangote_daily_sales_record,
   enter_terminal_daily_sales_record,
 } from "./sales.controller.js";
 import ProductReceived from "../models/storeModels/productReceived.model.js";
 import ProductRequest from "../models/storeModels/productRequest.model.js";
-import TerminalProduct from "../models/storeModels/terminalProduct.model.js";
+import TerminalProduct, { DangoteProduct } from "../models/storeModels/terminalProduct.model.js";
 import TerminalCollectionRecord from "../models/storeModels/terminalCollection.model.js";
 import ProductCategory from "../models/storeModels/productCategory.model.js";
 import { io } from "../socket/socket.js";
 import { nanoid } from "nanoid";
 import ProductTakeOut from "../models/storeModels/productTakeOut.model.js";
 import ProductReturn from "../models/storeModels/productReturn.model.js";
+import DangoteCollectionRecord from "../models/storeModels/dangoteCollection.model.js";
 
 // ! GETTERS
 
@@ -36,6 +38,17 @@ export const get_terminal_products = async (req, res) => {
     res.json({ products });
   } catch (error) {
     console.log("Error in get_terminal_products controller:", error.message);
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+// get dangote products
+export const get_dangote_products = async (req, res) => {
+  try {
+    const products = await get_all_dangote_products();
+    res.json({ products });
+  } catch (error) {
+    console.log("Error in get_dangote_products controller:", error.message);
     return res.status(500).send({ message: "Internal Server error" });
   }
 };
@@ -1083,6 +1096,158 @@ export const get_selected_terminalCollection_record = async (req, res) => {
   } catch (error) {
     console.log(
       "Error in get_selected_terminalCollection_record controller:",
+      error.message,
+    );
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+// Get Dangote collection record
+export const get_dangoteCollection_record = async (req, res) => {
+  // start
+  var localDate = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    new Date().getDate(),
+    new Date().getHours() + 1,
+    new Date().getMinutes(),
+    new Date().getSeconds(),
+    new Date().getMilliseconds(),
+  );
+
+  // end 3 months ago
+  var threeMonthAgo = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth() - 3,
+    1,
+  );
+
+  // convert date to local timezone
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+
+  threeMonthAgo.setMinutes(
+    threeMonthAgo.getMinutes() - threeMonthAgo.getTimezoneOffset(),
+  );
+
+  const query = {
+    $and: [
+      { recordDate: { $lte: localDate } },
+      { recordDate: { $gte: threeMonthAgo } },
+    ],
+  };
+
+  try {
+    const record = await DangoteCollectionRecord.find(query)
+      .sort({ recordDate: -1 })
+      .populate({
+        path: "products.product",
+        model: "Product",
+        select: ["name", "code", "category", "sort"],
+      })
+      .populate({
+        path: "staffResponsible",
+        select: ["nickName", "role", "staffId"],
+      })
+      .populate({
+        path: "editedBy.staff",
+        select: ["nickName", "role", "staffId"],
+      })
+      .populate({
+        path: "verifiedBy",
+        select: ["nickName", "role", "staffId"],
+      });
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_dangoteCollection_record controller:",
+      error.message,
+    );
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+//? Get selected Dangote collection record
+export const get_selected_dangoteCollection_record = async (req, res) => {
+  const { timeFrame, month, date } = req.body;
+
+  let query = {};
+
+  let start;
+  let end;
+
+  if (date) {
+    query = {
+      $match: {
+        d: `${date}`,
+      },
+    };
+  } else if (month) {
+    query = {
+      $match: {
+        m: `${month}`,
+      },
+    };
+  } else if (timeFrame) {
+    if (!timeFrame || timeFrame.length < 2 || timeFrame.length > 2) {
+      return res.status(500).json({ message: "Invalid Entry" });
+    }
+
+    start = timeFrame[0];
+    end = timeFrame[1];
+
+    query = {
+      $match: { dr: true },
+    };
+  } else {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  try {
+    const record = await DangoteCollectionRecord.aggregate([
+      {
+        $addFields: {
+          d: { $dateToString: { format: "%Y-%m-%d", date: "$recordDate" } },
+          m: { $dateToString: { format: "%Y-%m", date: "$recordDate" } },
+        },
+      },
+      {
+        $addFields: timeFrame
+          ? {
+              dr: { $and: [{ $gte: ["$d", start] }, { $lte: ["$d", end] }] },
+            }
+          : {},
+      },
+      { $match: { verified: true } },
+      query,
+      { $sort: { recordDate: -1 } },
+    ]);
+
+    await Promise.all(
+      await DangoteCollectionRecord.populate(record, {
+        path: "products.product",
+        select: ["name", "code", "category", "sort"],
+      }),
+
+      await DangoteCollectionRecord.populate(record, {
+        path: "staffResponsible",
+        select: ["nickName", "role", "staffId"],
+      }),
+
+      await DangoteCollectionRecord.populate(record, {
+        path: "editedBy.staff",
+        select: ["nickName", "role", "staffId"],
+      }),
+
+      await DangoteCollectionRecord.populate(record, {
+        path: "verifiedBy",
+        select: ["nickName", "role", "staffId"],
+      }),
+    );
+
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_selected_dangoteCollection_record controller:",
       error.message,
     );
     return res.status(500).send({ message: "Internal Server error" });
@@ -2939,6 +3104,294 @@ export const verify_terminalCollection_record = async (req, res) => {
   }
 };
 
+//? Enter dangote collection record
+export const enter_dangoteCollection_record = async (req, res) => {
+  const {
+    id,
+    staffResponsible,
+    products,
+    shortNote,
+    editedBy,
+    collectionType,
+    date,
+  } = req.body;
+
+  // verify all fields
+  if (!staffResponsible || !products || !collectionType || !date) {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  // verify collection type
+  if (collectionType !== "Collected" && collectionType !== "Returned") {
+    return res.status(500).json({ message: "Invalid Collection Type" });
+  }
+
+  // check if date is valid
+  if (!new Date(date)) {
+    return res.status(500).json({ message: "Invalid Date" });
+  }
+
+  // verify date
+  if (new Date(date) > new Date()) {
+    return res.status(500).json({ message: "Invalid Date" });
+  }
+
+  const recordDate = new Date(date);
+
+  // convert date to local timezone
+  recordDate.setMinutes(
+    recordDate.getMinutes() - recordDate.getTimezoneOffset(),
+  );
+
+  // verify products
+  if (products.length < 1) {
+    return res.status(500).json({ message: "No Products" });
+  }
+
+  // Verfiy each product field
+  for (let i = 0; i < products.length; i++) {
+    if (!products[i].product || !products[i].quantity) {
+      return res.status(500).json({ message: "Invalid Product Entry" });
+    }
+
+    // check if id is valid
+    if (!mongoose.Types.ObjectId.isValid(products[i].product)) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+
+    // Check if product exist
+    const productExists = await Product.findById(products[i].product);
+    if (!productExists) {
+      return res.status(500).json({ message: "Invalid Product Entry" });
+    }
+  }
+
+  // get total quantity
+  const totalQuantity = products.reduce((acc, product) => {
+    return acc + product.quantity;
+  }, 0);
+
+  try {
+    // if id is undefined CREATE
+    if (!id) {
+      const record = await DangoteCollectionRecord.create({
+        staffResponsible,
+        products,
+        shortNote,
+        totalQuantity,
+        collectionType,
+        recordDate: recordDate.toISOString(),
+        recordId: generate_record_id(),
+      });
+
+      res.json({ message: "Dangote Collection Entry Submitted", record });
+    }
+
+    // else UPDATE
+    else {
+      // check if _id is valid
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(500).json({ message: "Record ID not valid" });
+      }
+
+      // Check if record exist
+      const recordFind = await DangoteCollectionRecord.findById(id);
+      if (!recordFind) {
+        return res.status(500).json({ message: "Record does not exist" });
+      }
+
+      // Check if editedBy
+      if (!editedBy) {
+        return res.status(500).json({ message: "Invalid Entry" });
+      }
+
+      // Check if record is verified
+      if (recordFind.verified) {
+        return res.status(500).json({ message: "Record verified already" });
+      }
+
+      //   Edit Record
+      const record = await DangoteCollectionRecord.findOneAndUpdate(
+        { _id: id },
+        {
+          $set: {
+            staffResponsible,
+            products,
+            shortNote,
+            totalQuantity,
+            collectionType,
+            recordDate: recordDate.toISOString(),
+            isEdited: true,
+          },
+          $push: {
+            editedBy: {
+              staff: editedBy,
+            },
+          },
+        },
+        { new: true },
+      );
+      res.json({ message: "Dangote Collection Entry Updated", record });
+    }
+
+    //? emit
+    io.emit("DangoteCollectionRecord");
+  } catch (error) {
+    console.log("Error in enter_dangoteCollection_record: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+// Verify dangote collection record
+export const verify_dangoteCollection_record = async (req, res) => {
+  const { id, verifiedBy } = req.body;
+
+  // verify all input
+  if (!id || !verifiedBy) {
+    return res.status(500).json({ message: "Invalid Verification" });
+  }
+
+  // check if id is valid
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(500).json({ message: "Record ID not valid" });
+  }
+
+  // Check if product exist
+  const record = await DangoteCollectionRecord.findById(id);
+  if (!record) {
+    return res.status(500).json({ message: "Record does not exist" });
+  }
+
+  // Check if record is verified
+  if (record.verified) {
+    return res.status(500).json({ message: "Record verified already" });
+  }
+
+  // get all products
+  const products = record.products;
+
+  // verify products
+  if (!products || products.length < 1) {
+    return res.status(500).json({ message: "Record contains No products" });
+  }
+
+  // verify each products
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+
+    if (!product.product || !product.quantity) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+
+    // check if id is valid
+    if (!mongoose.Types.ObjectId.isValid(product.product)) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+
+    // Check if product exist
+    const productExists = await Product.findById(product.product);
+    if (!productExists) {
+      return res.status(500).json({ message: "Invalid product found" });
+    }
+  }
+
+  // map products for daily record update
+  const daily_rec_products = products.map((product) => {
+    return {
+      id: product.product,
+      quantity: product.quantity,
+    };
+  });
+
+  // update daily record ( dangoteCollected | dangoteReturn )
+  const field =
+    record.collectionType == "Collected"
+      ? "dangoteCollected"
+      : "dangoteReturn";
+  try {
+    const response = await enter_daily_sales_record({
+      date: record.recordDate.toISOString(),
+      field,
+      products: daily_rec_products,
+    });
+
+    if (response.error) {
+      return res.status(500).json({ message: response.error, error: response.error });
+    }
+  } catch (error) {
+    console.log("Error in enter_daily_sales_record: ", error);
+    return res.status(500).json({ message: error, error: error });
+  }
+
+  // update dangote daily record ( collected | returned )
+  const dangoteField =
+    record.collectionType == "Collected" ? "collected" : "returned";
+  try {
+    const response = await enter_dangote_daily_sales_record({
+      date: record.recordDate.toISOString(),
+      field: dangoteField,
+      products: daily_rec_products,
+    });
+
+    if (response.error) {
+      return res.status(500).json({ message: response.error, error: response.error });
+    }
+  } catch (error) {
+    console.log("Error in enter_dangote_daily_sales_record: ", error);
+    return res.status(500).json({ message: error, error: error });
+  }
+
+  // Update all products (increase | decrease quantity)
+  const increase = record.collectionType == "Collected" ? false : true;
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+    await update_product_quantity(product.product, product.quantity, increase);
+  }
+
+  // Update all dangote products (decrease quantity)
+  const increaseDangote = record.collectionType == "Collected" ? true : false;
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+    await update_dangote_product_quantity(
+      product.product,
+      product.quantity,
+      increaseDangote,
+    );
+  }
+
+  const date = new Date();
+  // convert date to local timezone
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+
+  try {
+    const record = await DangoteCollectionRecord.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          verifiedBy,
+          verified: true,
+          verifiedDate: date,
+        },
+      },
+      { new: true },
+    );
+
+    //? emit
+    io.emit("Product");
+    io.emit("DangoteProduct");
+    io.emit("DangoteCollectionRecord");
+
+    res.json({ message: "Dangote Collection Entry Verified", record });
+  } catch (error) {
+    console.log("Error in verify_dangoteCollection_record: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
 // Add/update product category
 export const add_update_product_category = async (req, res) => {
   const { id, category, sort } = req.body;
@@ -3680,6 +4133,131 @@ export const delete_terminalCollection_record = async (req, res) => {
   }
 };
 
+// Delete dangote collection record
+export const delete_dangoteCollection_record = async (req, res) => {
+  const { id } = req.params;
+  const { isAllowed } = req.body;
+
+  if (!id) {
+    return res.status(500).json({ message: "Record ID required" });
+  }
+
+  // check if id is valid
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(500).json({ message: "Record ID not valid" });
+  }
+
+  // Check if record exist
+  const record = await DangoteCollectionRecord.findById(id);
+  if (!record) {
+    return res.status(500).json({ message: "Record does not exist" });
+  }
+
+  // check if record is verified
+  if (record.verified) {
+    const products = record.products;
+    // Check is user is permitted
+    if (!isAllowed) {
+      return res.status(500).json({ message: "Unathorized to Delete" });
+    }
+
+    // User allowed to delete
+    else {
+      // map products for daily record update
+      const daily_rec_products = products.map((product) => {
+        return {
+          id: product.product,
+          quantity: -product.quantity,
+        };
+      });
+
+      // update daily record ( dangoteCollected | dangoteReturn )
+      const field =
+        record.collectionType == "Collected"
+          ? "dangoteCollected"
+          : "dangoteReturn";
+      try {
+        const response = await enter_daily_sales_record({
+          date: record.recordDate.toISOString(),
+          field,
+          products: daily_rec_products,
+        });
+
+        if (response.error) {
+          return res.status(500).json({ message: response.error, error: response.error });
+        }
+      } catch (error) {
+        console.log("Error in enter_daily_sales_record: ", error);
+        return res
+          .status(500)
+          .json({ message: error, error: error });
+      }
+
+      // update dangote daily record ( collected | returned )
+      const dangoteField =
+        record.collectionType == "Collected" ? "collected" : "returned";
+      try {
+        const response = await enter_dangote_daily_sales_record({
+          date: record.recordDate.toISOString(),
+          field: dangoteField,
+          products: daily_rec_products,
+        });
+
+        if (response.error) {
+          return res.status(500).json({ message: response.error, error: response.error });
+        }
+      } catch (error) {
+        console.log("Error in enter_dangote_daily_sales_record: ", error);
+        return res
+          .status(500)
+          .json({ message: error, error: error });
+      }
+
+      // Update all products (incearse | decrease quantity)
+      const increase = record.collectionType == "Collected" ? true : false;
+      for (let index = 0; index < products.length; index++) {
+        const product = products[index];
+        await update_product_quantity(
+          product.product,
+          product.quantity,
+          increase,
+        );
+      }
+
+      // Update all dangote products (decrease quantity)
+      const increaseDangote =
+        record.collectionType == "Collected" ? false : true;
+      for (let index = 0; index < products.length; index++) {
+        const product = products[index];
+        await update_dangote_product_quantity(
+          product.product,
+          product.quantity,
+          increaseDangote,
+        );
+      }
+
+      //? emit
+      io.emit("Product");
+      io.emit("DangoteProduct");
+    }
+  }
+
+  // delete record
+  try {
+    await DangoteCollectionRecord.findByIdAndDelete(id);
+
+    //? emit
+    io.emit("DangoteCollectionRecord");
+
+    res.json({ message: "Record deleted Sucessfully" });
+  } catch (error) {
+    console.log("Error in delete_dangoteCollection_record: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
 // Delete product category
 export const delete_product_category = async (req, res) => {
   const { id } = req.params;
@@ -3736,6 +4314,17 @@ export const get_all_terminal_products = async () => {
     return products;
   } catch (error) {
     console.log("Error in get_terminal_products utils:", error.message);
+    return { error: error.message };
+  }
+};
+
+// get dangote products
+export const get_all_dangote_products = async () => {
+  try {
+    const products = await DangoteProduct.find({});
+    return products;
+  } catch (error) {
+    console.log("Error in get_dangote_products utils:", error.message);
     return { error: error.message };
   }
 };
@@ -3824,6 +4413,58 @@ export const update_terminal_product_quantity = async (
       return { message: "Product updated" };
     } catch (error) {
       console.log("Error in update_terminal_product_quantity: ", error.message);
+      return { error: error.message };
+    }
+  }
+};
+
+// update dangote product quantity
+export const update_dangote_product_quantity = async (
+  id,
+  quantity,
+  increament,
+) => {
+  if (increament === undefined) {
+    return { error: "No increament attribute" };
+  }
+
+  const finalQuantity = increament ? quantity : -quantity;
+
+  // check if _id is valid
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return { error: "Product ID not valid" };
+  }
+
+  // Check if product exist
+  const productExists = await DangoteProduct.findById(id);
+  if (!productExists) {
+    const newP = await Product.findById(id);
+
+    const product = await DangoteProduct.create({
+      _id: newP._id,
+      name: newP.name,
+      code: newP.code,
+      category: newP.category,
+      quantity: finalQuantity,
+      storePrice: newP.storePrice,
+      isAvailable: newP.isAvailable,
+      sort: newP.sort,
+    });
+  } else {
+    try {
+      const product = await DangoteProduct.findOneAndUpdate(
+        { _id: id },
+        {
+          $inc: {
+            quantity: finalQuantity,
+          },
+        },
+        { new: true },
+      );
+
+      return { message: "Product updated" };
+    } catch (error) {
+      console.log("Error in update_dangote_product_quantity: ", error.message);
       return { error: error.message };
     }
   }

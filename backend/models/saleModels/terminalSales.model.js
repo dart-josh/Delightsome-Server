@@ -77,4 +77,9 @@ const TerminalSalesRecord = mongoose.model(
   terminalSalesSchema,
 );
 
+export const DangoteSalesRecord = mongoose.model(
+  "DangoteSalesRecord",
+  terminalSalesSchema,
+);
+
 export default TerminalSalesRecord;

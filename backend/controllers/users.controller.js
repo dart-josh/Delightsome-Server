@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 import Staff from "../models/userModels/staff.model.js";
 import Customer from "../models/userModels/customer.model.js";
-
 import { io } from "../socket/socket.js";
 
 // ! GETTERS
@@ -146,6 +145,7 @@ export const add_update_customer = async (req, res) => {
   if (
     customerType !== "Store" &&
     customerType !== "Terminal" &&
+    customerType !== "Dangote" &&
     customerType !== "Online"
   ) {
     return res.status(500).json({ message: "Invalid customer type" });

@@ -37,5 +37,6 @@ const terminalProductSchema = new mongoose.Schema({
 });
 
 const TerminalProduct = mongoose.model('TerminalProduct', terminalProductSchema);
+export const DangoteProduct = mongoose.model('DangoteProduct', terminalProductSchema);
 
 export default TerminalProduct;

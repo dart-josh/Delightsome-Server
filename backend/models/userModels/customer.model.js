@@ -24,7 +24,7 @@ const custommerSchema = new mongoose.Schema({
     customerType: {
         type: String,
         required: true,
-        enum: ["Store", "Terminal", "Online"],
+        enum: ["Store", "Terminal", "Dangote", "Online"],
     },
 },
 { timestamps: true },

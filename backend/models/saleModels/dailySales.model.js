@@ -52,6 +52,14 @@ const dailySalesSchema = new mongoose.Schema(
           type: Number,
           default: 0,
         },
+        dangoteCollected: {
+          type: Number,
+          default: 0,
+        },
+        dangoteReturn: {
+          type: Number,
+          default: 0,
+        },
         badProduct: {
           type: Number,
           default: 0,
