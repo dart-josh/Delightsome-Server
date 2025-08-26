@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { GiSolderingIron } from "react-icons/gi";
 
 // Daily sales record
-const terminalDailySalesSchema = new mongoose.Schema(
+const outletDailySalesSchema = new mongoose.Schema(
   {
     date: {
       type: String,
@@ -44,12 +44,17 @@ const terminalDailySalesSchema = new mongoose.Schema(
   },
 );
 
+export const OutletDailySalesRecord = mongoose.model(
+  "OutletDailySalesRecord",
+  outletDailySalesSchema,
+);
+
 export const TerminalDailySalesRecord = mongoose.model(
   "TerminalDailySalesRecord",
-  terminalDailySalesSchema,
+  outletDailySalesSchema,
 );
 
 export const DangoteDailySalesRecord = mongoose.model(
   "DangoteDailySalesRecord",
-  terminalDailySalesSchema,
+  outletDailySalesSchema,
 );

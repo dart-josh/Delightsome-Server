@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const terminalProductSchema = new mongoose.Schema({
+const outletProductSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Product Name is required']
@@ -36,7 +36,6 @@ const terminalProductSchema = new mongoose.Schema({
     timestamps: true,
 });
 
-const TerminalProduct = mongoose.model('TerminalProduct', terminalProductSchema);
-export const DangoteProduct = mongoose.model('DangoteProduct', terminalProductSchema);
-
-export default TerminalProduct;
+export const OutletProduct = mongoose.model('OutletProduct', outletProductSchema);
+export const TerminalProduct = mongoose.model('TerminalProduct', outletProductSchema);
+export const DangoteProduct = mongoose.model('DangoteProduct', outletProductSchema);

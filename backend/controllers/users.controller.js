@@ -46,6 +46,7 @@ export const add_update_staff = async (req, res) => {
     role !== "Production" &&
     role !== "Sales" &&
     role !== "Terminal" &&
+    role !== "Dangote" &&
     role !== "Admin"
   ) {
     return res.status(500).json({ message: "Invalid role" });

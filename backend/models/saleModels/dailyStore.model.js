@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 // Daily sales record
-const dailySalesSchema = new mongoose.Schema(
+const dailyStoreSchema = new mongoose.Schema(
   {
     date: {
       type: String,
@@ -44,6 +44,14 @@ const dailySalesSchema = new mongoose.Schema(
           type: Number,
           default: 0,
         },
+        outletCollected: {
+          type: Number,
+          default: 0,
+        },
+        outletReturn: {
+          type: Number,
+          default: 0,
+        },
         terminalCollected: {
           type: Number,
           default: 0,
@@ -68,6 +76,7 @@ const dailySalesSchema = new mongoose.Schema(
           type: Number,
           default: 0,
         },
+        //! Remove
         quantitySold: {
           type: Number,
           default: 0,
@@ -80,7 +89,7 @@ const dailySalesSchema = new mongoose.Schema(
   },
 );
 
-export const DailySalesRecord = mongoose.model(
-  "DailySalesRecord",
-  dailySalesSchema,
+export const DailyStoreRecord = mongoose.model(
+  "DailyStoreRecord",
+  dailyStoreSchema,
 );

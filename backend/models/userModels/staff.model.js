@@ -16,7 +16,7 @@ const staffSchema = new mongoose.Schema({
     role: {
         type: String,
         required: true,
-        enum: ['Management', 'Production', 'Sales', 'Terminal', 'Admin'],
+        enum: ['Management', 'Production', 'Sales', 'Terminal', 'Dangote', 'Admin'],
     },
     fullaccess: {
         type: Boolean,

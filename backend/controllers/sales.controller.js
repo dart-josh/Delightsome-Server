@@ -1,22 +1,40 @@
 // ! GETTERS
 
-import { DailySalesRecord } from "../models/saleModels/dailySales.model.js";
-import SalesRecord from "../models/saleModels/sales.model.js";
-import { DangoteDailySalesRecord, TerminalDailySalesRecord } from "../models/saleModels/terminalDailySales.model.js";
-import TerminalSalesRecord, { DangoteSalesRecord } from "../models/saleModels/terminalSales.model.js";
+import { DailyStoreRecord } from "../models/saleModels/dailyStore.model.js";
+import {
+  OutletSalesRecord,
+  TerminalSalesRecord,
+  DangoteSalesRecord,
+  StoreSalesRecord,
+} from "../models/saleModels/sales.model.js";
+import {
+  OutletDailySalesRecord,
+  DangoteDailySalesRecord,
+  TerminalDailySalesRecord,
+} from "../models/saleModels/outletDailySales.model.js";
 import BadProduct from "../models/storeModels/badProduct.model.js";
 import Product from "../models/storeModels/product.model.js";
 import ProductionRecord from "../models/storeModels/productionRecord.model.js";
 import ProductReceived from "../models/storeModels/productReceived.model.js";
 import ProductRequest from "../models/storeModels/productRequest.model.js";
-import TerminalCollectionRecord from "../models/storeModels/terminalCollection.model.js";
-import TerminalProduct, { DangoteProduct } from "../models/storeModels/terminalProduct.model.js";
 import {
-  get_all_dangote_products,
+  OutletCollectionRecord,
+  TerminalCollectionRecord,
+  DangoteCollectionRecord,
+} from "../models/storeModels/collection.model.js";
+import {
+  OutletProduct,
+  TerminalProduct,
+  DangoteProduct,
+} from "../models/storeModels/outletProduct.model.js";
+import {
   get_all_products,
+  get_all_outlet_products,
+  get_all_dangote_products,
   get_all_terminal_products,
-  update_dangote_product_quantity,
   update_product_quantity,
+  update_outlet_product_quantity,
+  update_dangote_product_quantity,
   update_terminal_product_quantity,
 } from "./store.controller.js";
 import mongoose from "mongoose";
@@ -27,8 +45,9 @@ import ProductReturn from "../models/storeModels/productReturn.model.js";
 
 // ! GETTERS
 
-// Get sales record
-export const get_sales_record = async (req, res) => {
+//?
+// Get store sales record
+export const get_store_sales_record = async (req, res) => {
   // start
   var localDate = new Date(
     new Date().getFullYear(),
@@ -62,7 +81,7 @@ export const get_sales_record = async (req, res) => {
   };
 
   try {
-    const record = await SalesRecord.find(query)
+    const record = await StoreSalesRecord.find(query)
       .sort({ recordDate: -1 })
       .populate({
         path: "products.product",
@@ -78,7 +97,64 @@ export const get_sales_record = async (req, res) => {
       });
     res.json({ record });
   } catch (error) {
-    console.log("Error in get_sales_record controller:", error.message);
+    console.log("Error in get_store_sales_record controller:", error.message);
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+//?
+// Get outlet sales record
+export const get_outlet_sales_record = async (req, res) => {
+  // start
+  var localDate = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    new Date().getDate(),
+    new Date().getHours() + 1,
+    new Date().getMinutes(),
+    new Date().getSeconds(),
+    new Date().getMilliseconds(),
+  );
+
+  // end 3 months ago
+  var threeMonthAgo = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth() - 3,
+    1,
+  );
+
+  // convert date to local timezone
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+
+  threeMonthAgo.setMinutes(
+    threeMonthAgo.getMinutes() - threeMonthAgo.getTimezoneOffset(),
+  );
+
+  const query = {
+    $and: [
+      { recordDate: { $lte: localDate } },
+      { recordDate: { $gte: threeMonthAgo } },
+    ],
+  };
+
+  try {
+    const record = await OutletSalesRecord.find(query)
+      .sort({ recordDate: -1 })
+      .populate({
+        path: "products.product",
+        select: ["name", "code", "category", "sort"],
+      })
+      .populate({
+        path: "customer",
+        select: ["nickName", "fullname", "customerType"],
+      })
+      .populate({
+        path: "soldBy",
+        select: ["nickName", "role", "staffId"],
+      });
+    res.json({ record });
+  } catch (error) {
+    console.log("Error in get_outlet_sales_record controller:", error.message);
     return res.status(500).send({ message: "Internal Server error" });
   }
 };
@@ -193,16 +269,13 @@ export const get_dangote_sales_record = async (req, res) => {
       });
     res.json({ record });
   } catch (error) {
-    console.log(
-      "Error in get_dangote_sales_record controller:",
-      error.message,
-    );
+    console.log("Error in get_dangote_sales_record controller:", error.message);
     return res.status(500).send({ message: "Internal Server error" });
   }
 };
 
-//? Get selected sales record
-export const get_selected_sales_record = async (req, res) => {
+//? Get selected store sales record
+export const get_selected_store_sales_record = async (req, res) => {
   const { timeFrame, month, date } = req.body;
 
   let query = {};
@@ -238,7 +311,7 @@ export const get_selected_sales_record = async (req, res) => {
   }
 
   try {
-    const record = await SalesRecord.aggregate([
+    const record = await StoreSalesRecord.aggregate([
       {
         $addFields: {
           d: { $dateToString: { format: "%Y-%m-%d", date: "$recordDate" } },
@@ -257,17 +330,17 @@ export const get_selected_sales_record = async (req, res) => {
     ]);
 
     await Promise.all(
-      await SalesRecord.populate(record, {
+      await StoreSalesRecord.populate(record, {
         path: "products.product",
         select: ["name", "code", "category", "sort"],
       }),
 
-      await SalesRecord.populate(record, {
+      await StoreSalesRecord.populate(record, {
         path: "customer",
         select: ["nickName", "fullname", "customerType"],
       }),
 
-      await SalesRecord.populate(record, {
+      await StoreSalesRecord.populate(record, {
         path: "soldBy",
         select: ["nickName", "role", "staffId"],
       }),
@@ -276,7 +349,89 @@ export const get_selected_sales_record = async (req, res) => {
     res.json({ record });
   } catch (error) {
     console.log(
-      "Error in get_selected_sales_record controller:",
+      "Error in get_selected_store_sales_record controller:",
+      error.message,
+    );
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+//? Get selected outlet sales record
+export const get_selected_outlet_sales_record = async (req, res) => {
+  const { timeFrame, month, date } = req.body;
+
+  let query = {};
+
+  let start;
+  let end;
+
+  if (date) {
+    query = {
+      $match: {
+        d: `${date}`,
+      },
+    };
+  } else if (month) {
+    query = {
+      $match: {
+        m: `${month}`,
+      },
+    };
+  } else if (timeFrame) {
+    if (!timeFrame || timeFrame.length < 2 || timeFrame.length > 2) {
+      return res.status(500).json({ message: "Invalid Entry" });
+    }
+
+    start = timeFrame[0];
+    end = timeFrame[1];
+
+    query = {
+      $match: { dr: true },
+    };
+  } else {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  try {
+    const record = await OutletSalesRecord.aggregate([
+      {
+        $addFields: {
+          d: { $dateToString: { format: "%Y-%m-%d", date: "$recordDate" } },
+          m: { $dateToString: { format: "%Y-%m", date: "$recordDate" } },
+        },
+      },
+      {
+        $addFields: timeFrame
+          ? {
+              dr: { $and: [{ $gte: ["$d", start] }, { $lte: ["$d", end] }] },
+            }
+          : {},
+      },
+      query,
+      { $sort: { recordDate: -1 } },
+    ]);
+
+    await Promise.all(
+      await OutletSalesRecord.populate(record, {
+        path: "products.product",
+        select: ["name", "code", "category", "sort"],
+      }),
+
+      await OutletSalesRecord.populate(record, {
+        path: "customer",
+        select: ["nickName", "fullname", "customerType"],
+      }),
+
+      await OutletSalesRecord.populate(record, {
+        path: "soldBy",
+        select: ["nickName", "role", "staffId"],
+      }),
+    );
+
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_selected_outlet_sales_record controller:",
       error.message,
     );
     return res.status(500).send({ message: "Internal Server error" });
@@ -447,8 +602,10 @@ export const get_selected_dangote_sales_record = async (req, res) => {
   }
 };
 
-// Get daily sales record
-export const get_daily_sales_record = async (req, res) => {
+//?
+
+// Get daily store record
+export const get_daily_store_record = async (req, res) => {
   // start
   var localDate = new Date(
     new Date().getFullYear(),
@@ -482,7 +639,7 @@ export const get_daily_sales_record = async (req, res) => {
   };
 
   try {
-    const record = await DailySalesRecord.find(query)
+    const record = await DailyStoreRecord.find(query)
       .sort({ date: -1 })
       // .limit(30)
       .populate({
@@ -498,7 +655,66 @@ export const get_daily_sales_record = async (req, res) => {
       });
     res.json({ record });
   } catch (error) {
-    console.log("Error in get_daily_sales_record controller:", error.message);
+    console.log("Error in get_daily_store_record controller:", error.message);
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+// Get outlet daily sales record
+export const get_outlet_daily_sales_record = async (req, res) => {
+  // start
+  var localDate = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    new Date().getDate(),
+    new Date().getHours() + 1,
+    new Date().getMinutes(),
+    new Date().getSeconds(),
+    new Date().getMilliseconds(),
+  );
+
+  // end 3 months ago
+  var threeMonthAgo = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth() - 3,
+    1,
+  );
+
+  // convert date to local timezone
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+
+  threeMonthAgo.setMinutes(
+    threeMonthAgo.getMinutes() - threeMonthAgo.getTimezoneOffset(),
+  );
+
+  const query = {
+    $and: [
+      { date: { $lte: formatDate(localDate.toISOString()) } },
+      { date: { $gte: formatDate(threeMonthAgo.toISOString()) } },
+    ],
+  };
+
+  try {
+    const record = await OutletDailySalesRecord.find(query)
+      .sort({ date: -1 })
+      // .limit(30)
+      .populate({
+        path: "products.product",
+        select: [
+          "name",
+          "code",
+          "category",
+          "sort",
+          "storePrice",
+          "onlinePrice",
+        ],
+      });
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_outlet_daily_sales_record controller:",
+      error.message,
+    );
     return res.status(500).send({ message: "Internal Server error" });
   }
 };
@@ -621,8 +837,8 @@ export const get_dangote_daily_sales_record = async (req, res) => {
   }
 };
 
-// Get selected daily sales record
-export const get_selected_daily_sales_record = async (req, res) => {
+//? Get selected daily store record
+export const get_selected_daily_store_record = async (req, res) => {
   const { timeFrame, month, date } = req.body;
 
   let query = {};
@@ -645,7 +861,7 @@ export const get_selected_daily_sales_record = async (req, res) => {
   }
 
   try {
-    const record = await DailySalesRecord.find(query)
+    const record = await DailyStoreRecord.find(query)
       .sort({ date: -1 })
       .populate({
         path: "products.product",
@@ -661,14 +877,61 @@ export const get_selected_daily_sales_record = async (req, res) => {
     res.json({ record });
   } catch (error) {
     console.log(
-      "Error in get_selected_daily_sales_record controller:",
+      "Error in get_selected_daily_store_record controller:",
       error.message,
     );
     return res.status(500).send({ message: "Internal Server error" });
   }
 };
 
-// Get selected terminal daily sales record
+//? Get selected outlet daily sales record
+export const get_selected_outlet_daily_sales_record = async (req, res) => {
+  const { timeFrame, month, date } = req.body;
+
+  let query = {};
+
+  if (date) {
+    query = { date: { $eq: date } };
+  } else if (month) {
+    query = { date: { $regex: `.*${month}.*` } };
+  } else if (timeFrame) {
+    if (!timeFrame || timeFrame.length < 2 || timeFrame.length > 2) {
+      return res.status(500).json({ message: "Invalid Entry" });
+    }
+
+    const start = timeFrame[0];
+    const end = timeFrame[1];
+
+    query = { $and: [{ date: { $lte: start } }, { date: { $gte: end } }] };
+  } else {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  try {
+    const record = await OutletDailySalesRecord.find(query)
+      .sort({ date: -1 })
+      .populate({
+        path: "products.product",
+        select: [
+          "name",
+          "code",
+          "category",
+          "sort",
+          "storePrice",
+          "onlinePrice",
+        ],
+      });
+    res.json({ record });
+  } catch (error) {
+    console.log(
+      "Error in get_selected_outlet_daily_sales_record controller:",
+      error.message,
+    );
+    return res.status(500).send({ message: "Internal Server error" });
+  }
+};
+
+//? Get selected terminal daily sales record
 export const get_selected_terminal_daily_sales_record = async (req, res) => {
   const { timeFrame, month, date } = req.body;
 
@@ -715,7 +978,7 @@ export const get_selected_terminal_daily_sales_record = async (req, res) => {
   }
 };
 
-// Get selected dangote daily sales record
+//? Get selected dangote daily sales record
 export const get_selected_dangote_daily_sales_record = async (req, res) => {
   const { timeFrame, month, date } = req.body;
 
@@ -762,10 +1025,12 @@ export const get_selected_dangote_daily_sales_record = async (req, res) => {
   }
 };
 
+//?
+
 // ! SETTERS
 
 // Enter new sale
-export const enter_new_sale = async (req, res) => {
+export const enter_new_store_sale = async (req, res) => {
   // get values from body
   const {
     products,
@@ -876,7 +1141,7 @@ export const enter_new_sale = async (req, res) => {
   // update daily record ( online | quantitySold )
   const field = saleType === "online" ? "online" : "quantitySold";
   try {
-    const response = await enter_daily_sales_record({
+    const response = await enter_daily_store_record({
       date: recordDate.toISOString(),
       field,
       products: daily_rec_products,
@@ -888,7 +1153,7 @@ export const enter_new_sale = async (req, res) => {
         .json({ message: response.error, error: response.error });
     }
   } catch (error) {
-    console.log("Error in enter_daily_sales_record: ", error);
+    console.log("Error in enter_daily_store_record: ", error);
     return res.status(500).json({ message: error, error: error });
   }
 
@@ -900,7 +1165,7 @@ export const enter_new_sale = async (req, res) => {
 
   // Enter sale
   try {
-    const newSale = new SalesRecord({
+    const newSale = new StoreSalesRecord({
       recordDate,
       orderId,
       products,
@@ -919,11 +1184,164 @@ export const enter_new_sale = async (req, res) => {
 
     //? emit
     io.emit("Product");
-    io.emit("SalesRecord");
+    io.emit("StoreSalesRecord");
 
     res.json({ message: "Sale Entered Successfully", newSale });
   } catch (error) {
-    console.log("Error in Enter new sales controller:", error.message);
+    console.log("Error in Enter new store sales controller:", error.message);
+    res.status(409).json({ message: error.message });
+  }
+};
+
+// Enter new outlet Sales
+export const enter_new_outlet_sale = async (req, res) => {
+  // get values from body
+  const {
+    products,
+    orderPrice,
+    customer,
+    shortNote,
+    paymentMethod,
+    splitPaymentMethod,
+    discountPrice,
+    soldBy,
+    date,
+  } = req.body;
+
+  // verify all fields
+  if (!products || !orderPrice || !paymentMethod || !soldBy || !date) {
+    return res.status(500).json({ message: "Invalid Entry" });
+  }
+
+  // check if date is valid
+  if (!new Date(date)) {
+    return res.status(500).json({ message: "Invalid Date" });
+  }
+
+  // verify date
+  if (new Date(date) > new Date()) {
+    return res.status(500).json({ message: "Invalid Date" });
+  }
+
+  const recordDate = new Date(date);
+  // convert date to local timezone
+  recordDate.setMinutes(
+    recordDate.getMinutes() - recordDate.getTimezoneOffset(),
+  );
+
+  // verify products
+  if (products.length < 1) {
+    return res.status(500).json({ message: "No Products" });
+  }
+
+  // Verfiy each product field
+  for (let i = 0; i < products.length; i++) {
+    if (!products[i].product || !products[i].quantity) {
+      return res.status(500).json({ message: "Invalid Product Entry" });
+    }
+
+    // check if id is valid
+    if (!mongoose.Types.ObjectId.isValid(products[i].product)) {
+      return res.status(500).json({ message: "Invalid product Entry" });
+    }
+
+    // Check if product exist
+    const productExists = await Product.findById(products[i].product);
+    if (!productExists) {
+      return res.status(500).json({ message: "Invalid Product Entry" });
+    }
+  }
+
+  // Verify splitPaymentMethod
+  if (
+    splitPaymentMethod &&
+    splitPaymentMethod.length > 0 &&
+    (splitPaymentMethod.length < 2 || splitPaymentMethod.length > 3)
+  ) {
+    return res.status(500).json({ message: "Invalid splitPaymentMethod" });
+  }
+
+  // verify splitPaymentMethod fields
+  if (splitPaymentMethod && splitPaymentMethod.length > 0) {
+    for (let i = 0; i < splitPaymentMethod.length; i++) {
+      if (
+        !splitPaymentMethod[i].paymentMethod ||
+        !splitPaymentMethod[i].amount
+      ) {
+        return res.status(500).json({ message: "Invalid splitPaymentMethod" });
+      }
+    }
+  }
+
+  // generate order Id
+  const orderId = generate_order_id();
+
+  // get total quantity
+  const totalQuantity = products.reduce((acc, product) => {
+    return acc + product.quantity;
+  }, 0);
+
+  // map products for outlet daily record update
+  const daily_rec_products = products.map((product) => {
+    return {
+      id: product.product,
+      quantity: product.quantity,
+    };
+  });
+
+  // update outlet daily record ( sold )
+  try {
+    const response = await enter_outlet_daily_sales_record({
+      date: recordDate.toISOString(),
+      field: "sold",
+      products: daily_rec_products,
+    });
+
+    if (response.error) {
+      return res
+        .status(500)
+        .json({ message: response.error, error: response.error });
+    }
+  } catch (error) {
+    console.log("Error in enter_outlet_daily_sales_record: ", error);
+    return res.status(500).json({ message: error, error: error });
+  }
+
+  // Update all outlet products (decrease quantity)
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+    await update_outlet_product_quantity(
+      product.product,
+      product.quantity,
+      false,
+    );
+  }
+
+  // Enter sale
+  try {
+    const newSale = new OutletSalesRecord({
+      recordDate,
+      orderId,
+      products,
+      orderPrice,
+      totalQuantity,
+      customer,
+      shortNote,
+      paymentMethod,
+      splitPaymentMethod,
+      discountPrice,
+      soldBy,
+    });
+
+    await newSale.save();
+
+    //? emit
+    io.emit("OutletProduct");
+    io.emit("OutletSalesRecord");
+
+    res.json({ message: "Sale Entered Successfully", newSale });
+  } catch (error) {
+    console.log("Error in enter_new_outlet_sale controller:", error.message);
     res.status(409).json({ message: error.message });
   }
 };
@@ -1236,8 +1654,8 @@ export const enter_new_dangote_sale = async (req, res) => {
 
 // ! REMOVALS
 
-// Delete Sale record
-export const delete_sale_record = async (req, res) => {
+// Delete Store Sale record
+export const delete_store_sale_record = async (req, res) => {
   const { id } = req.params;
   const { isAllowed } = req.body;
 
@@ -1251,7 +1669,7 @@ export const delete_sale_record = async (req, res) => {
   }
 
   // Check if record exist
-  const record = await SalesRecord.findById(id);
+  const record = await StoreSalesRecord.findById(id);
   if (!record) {
     return res.status(500).json({ message: "Record does not exist" });
   }
@@ -1275,7 +1693,7 @@ export const delete_sale_record = async (req, res) => {
   // update daily record ( online | quantitySold )
   const field = record.saleType === "online" ? "online" : "quantitySold";
   try {
-    const response = await enter_daily_sales_record({
+    const response = await enter_daily_store_record({
       date: record.recordDate.toISOString(),
       field,
       products: daily_rec_products,
@@ -1287,7 +1705,7 @@ export const delete_sale_record = async (req, res) => {
         .json({ message: response.error, error: response.error });
     }
   } catch (error) {
-    console.log("Error in enter_daily_sales_record: ", error);
+    console.log("Error in enter_daily_store_record: ", error);
     return res.status(500).json({ message: error, error: error });
   }
 
@@ -1299,15 +1717,96 @@ export const delete_sale_record = async (req, res) => {
 
   // delete record
   try {
-    await SalesRecord.findByIdAndDelete(id);
+    await StoreSalesRecord.findByIdAndDelete(id);
 
     //? emit
     io.emit("Product");
-    io.emit("SalesRecord");
+    io.emit("StoreSalesRecord");
 
     res.json({ message: "Record deleted Sucessfully" });
   } catch (error) {
     console.log("Error in delete_sale_record: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+// Delete Outlet Sale record
+export const delete_outlet_sale_record = async (req, res) => {
+  const { id } = req.params;
+  const { isAllowed } = req.body;
+
+  if (!id) {
+    return res.status(500).json({ message: "Record ID required" });
+  }
+
+  // check if id is valid
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(500).json({ message: "Record ID not valid" });
+  }
+
+  // Check if record exist
+  const record = await OutletSalesRecord.findById(id);
+  if (!record) {
+    return res.status(500).json({ message: "Record does not exist" });
+  }
+
+  // Check is user is permitted
+  if (!isAllowed) {
+    return res.status(500).json({ message: "Unathorized to Delete" });
+  }
+
+  // Get products
+  const products = record.products;
+
+  // map products for daily record update
+  const daily_rec_products = products.map((product) => {
+    return {
+      id: product.product,
+      quantity: -product.quantity,
+    };
+  });
+
+  // update outlet daily record ( sold )
+  try {
+    const response = await enter_outlet_daily_sales_record({
+      date: record.recordDate.toISOString(),
+      field: "sold",
+      products: daily_rec_products,
+    });
+
+    if (response.error) {
+      return res
+        .status(500)
+        .json({ message: response.error, error: response.error });
+    }
+  } catch (error) {
+    console.log("Error in enter_outlet_daily_sales_record: ", error);
+    return res.status(500).json({ message: error, error: error });
+  }
+
+  // Update all outlet products (increase quantity)
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+    await update_outlet_product_quantity(
+      product.product,
+      product.quantity,
+      true,
+    );
+  }
+
+  // delete record
+  try {
+    await OutletSalesRecord.findByIdAndDelete(id);
+
+    //? emit
+    io.emit("OutletProduct");
+    io.emit("OutletSalesRecord");
+
+    res.json({ message: "Record deleted Sucessfully" });
+  } catch (error) {
+    console.log("Error in delete_outlet_sale_record: ", error.message);
     res
       .status(500)
       .json({ message: "Internal Server error", error: error.message });
@@ -1479,19 +1978,19 @@ export const delete_dangote_sale_record = async (req, res) => {
 // ! DB FUNCTIONS
 
 // Enter daily sales record
-export const enter_daily_sales_record = async ({ date, field, products }) => {
+export const enter_daily_store_record = async ({ date, field, products }) => {
   const db_date = formatDate(date);
 
-  const record = await DailySalesRecord.findOne({ date: db_date });
+  const record = await DailyStoreRecord.findOne({ date: db_date });
 
   //   Open new record for this date
   if (!record) {
-    const resonse = await open_daily_sales_record(db_date);
+    const resonse = await open_daily_store_record(db_date);
     if (resonse.error) {
       return { error: resonse.error };
     }
 
-    console.log("New Daily record opened: ", db_date);
+    console.log("New Store Daily record opened: ", db_date);
   }
 
   //   if no products in the data
@@ -1505,6 +2004,8 @@ export const enter_daily_sales_record = async ({ date, field, products }) => {
     field !== "request" &&
     field !== "takeOut" &&
     field !== "return" &&
+    field !== "outletCollected" &&
+    field !== "outletReturn" &&
     field !== "terminalCollected" &&
     field !== "terminalReturn" &&
     field !== "dangoteCollected" &&
@@ -1527,7 +2028,7 @@ export const enter_daily_sales_record = async ({ date, field, products }) => {
   // Check and update product fields
   for (let index = 0; index < products.length; index++) {
     const product = products[index];
-    const product_exist = await DailySalesRecord.findOne({
+    const product_exist = await DailyStoreRecord.findOne({
       date: db_date,
       "products.product": product.id,
     });
@@ -1536,7 +2037,7 @@ export const enter_daily_sales_record = async ({ date, field, products }) => {
     if (!product_exist) {
       const newP = await Product.findById(product.id);
 
-      await DailySalesRecord.findOneAndUpdate(
+      await DailyStoreRecord.findOneAndUpdate(
         {
           date: db_date,
         },
@@ -1550,7 +2051,7 @@ export const enter_daily_sales_record = async ({ date, field, products }) => {
 
     //   Update product
     else {
-      await DailySalesRecord.findOneAndUpdate(
+      await DailyStoreRecord.findOneAndUpdate(
         {
           date: db_date,
           "products.product": product.id,
@@ -1563,9 +2064,98 @@ export const enter_daily_sales_record = async ({ date, field, products }) => {
   }
 
   //? emit
-  io.emit("DailySalesRecord");
+  io.emit("DailyStoreRecord");
 
   return { message: "Daily Record updated" };
+};
+
+// Enter outlet daily sales record
+export const enter_outlet_daily_sales_record = async ({
+  date,
+  field,
+  products,
+}) => {
+  const db_date = formatDate(date);
+
+  const record = await OutletDailySalesRecord.findOne({ date: db_date });
+
+  //   Open new record for this date
+  if (!record) {
+    const resonse = await open_outlet_daily_sales_record(db_date);
+    if (resonse.error) {
+      return { error: resonse.error };
+    }
+
+    console.log("New Outlet Daily record opened: ", db_date);
+  }
+
+  //   if no products in the data
+  if (!products || products.length < 1) {
+    return { error: "No products to add" };
+  }
+
+  //   Verify field
+  if (field !== "collected" && field !== "returned" && field !== "sold") {
+    return { error: "Invalid field" };
+  }
+
+  //   Verify all products
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+    if (!product.id || !product.quantity) {
+      return { error: "Incomplete Product found" };
+    }
+  }
+
+  // Check and update product fields
+  for (let index = 0; index < products.length; index++) {
+    const product = products[index];
+    const product_exist = await OutletDailySalesRecord.findOne({
+      date: db_date,
+      "products.product": product.id,
+    });
+
+    //   Add new product
+    if (!product_exist) {
+      const newP = await OutletProduct.findById(product.id);
+
+      const openingQuantity = !newP ? 0 : newP.quantity;
+
+      await OutletDailySalesRecord.findOneAndUpdate(
+        {
+          date: db_date,
+        },
+        {
+          $push: {
+            products: get_value_from_outlet_field(
+              field,
+              product.quantity,
+              openingQuantity,
+              product.id,
+            ),
+          },
+        },
+      );
+    }
+
+    //   Update product
+    else {
+      await OutletDailySalesRecord.findOneAndUpdate(
+        {
+          date: db_date,
+          "products.product": product.id,
+        },
+        {
+          $inc: get_query_from_outlet_field(field, product.quantity),
+        },
+      );
+    }
+  }
+
+  //? emit
+  io.emit("OutletDailySalesRecord");
+
+  return { message: "Outlet Daily Record updated" };
 };
 
 // Enter terminal daily sales record
@@ -1626,7 +2216,7 @@ export const enter_terminal_daily_sales_record = async ({
         },
         {
           $push: {
-            products: get_value_from_terminal_field(
+            products: get_value_from_outlet_field(
               field,
               product.quantity,
               openingQuantity,
@@ -1645,7 +2235,7 @@ export const enter_terminal_daily_sales_record = async ({
           "products.product": product.id,
         },
         {
-          $inc: get_query_from_terminal_field(field, product.quantity),
+          $inc: get_query_from_outlet_field(field, product.quantity),
         },
       );
     }
@@ -1715,7 +2305,7 @@ export const enter_dangote_daily_sales_record = async ({
         },
         {
           $push: {
-            products: get_value_from_terminal_field(
+            products: get_value_from_outlet_field(
               field,
               product.quantity,
               openingQuantity,
@@ -1734,7 +2324,7 @@ export const enter_dangote_daily_sales_record = async ({
           "products.product": product.id,
         },
         {
-          $inc: get_query_from_terminal_field(field, product.quantity),
+          $inc: get_query_from_outlet_field(field, product.quantity),
         },
       );
     }
@@ -1746,8 +2336,10 @@ export const enter_dangote_daily_sales_record = async ({
   return { message: "Dangote Daily Record updated" };
 };
 
+//?
+
 // Open daily sales record
-export const open_daily_sales_record = async (date) => {
+export const open_daily_store_record = async (date) => {
   //? check all record for no existing previous record
 
   const agg_find = [
@@ -1802,11 +2394,25 @@ export const open_daily_sales_record = async (date) => {
     return { error: "Pending Bad Product record" };
   }
 
+  // OutletCollectionRecord
+  const outletCollection_record =
+    await OutletCollectionRecord.aggregate(agg_find);
+  if (outletCollection_record.length > 0) {
+    return { error: "Pending Outlet Collection record" };
+  }
+
   // TerminalCollectionRecord
   const terminalCollection_record =
     await TerminalCollectionRecord.aggregate(agg_find);
   if (terminalCollection_record.length > 0) {
     return { error: "Pending Terminal Collection record" };
+  }
+
+  // DangoteCollectionRecord
+  const dangoteCollection_record =
+    await DangoteCollectionRecord.aggregate(agg_find);
+  if (dangoteCollection_record.length > 0) {
+    return { error: "Pending Dangote Collection record" };
   }
 
   const db_products = await get_all_products();
@@ -1821,15 +2427,41 @@ export const open_daily_sales_record = async (date) => {
   });
 
   try {
-    const newRecord = new DailySalesRecord({ date, products });
+    const newRecord = new DailyStoreRecord({ date, products });
     await newRecord.save();
 
     //? emit
-    io.emit("DailySalesRecord");
+    io.emit("DailyStoreRecord");
 
     return { newRecord };
   } catch (error) {
-    console.log("Error in open_daily_sales_record:", error.message);
+    console.log("Error in open_daily_store_record:", error.message);
+    return { error };
+  }
+};
+
+// Open outlet daily sales record
+export const open_outlet_daily_sales_record = async (date) => {
+  const db_products = await get_all_outlet_products();
+
+  const products = db_products.map((product) => {
+    return {
+      product: product._id,
+      openingQuantity: product.quantity,
+      storePrice: product.storePrice,
+    };
+  });
+
+  try {
+    const newRecord = new OutletDailySalesRecord({ date, products });
+    await newRecord.save();
+
+    //? emit
+    io.emit("OutletDailySalesRecord");
+
+    return { newRecord };
+  } catch (error) {
+    console.log("Error in Open outlet daily sales record:", error.message);
     return { error };
   }
 };
@@ -1909,6 +2541,10 @@ const get_query_from_field = (field, quantity) => {
       return { "products.$.takeOut": quantity };
     case "return":
       return { "products.$.return": quantity };
+    case "outletCollected":
+      return { "products.$.outletCollected": quantity };
+    case "outletReturn":
+      return { "products.$.outletReturn": quantity };
     case "terminalCollected":
       return { "products.$.terminalCollected": quantity };
     case "terminalReturn":
@@ -1952,6 +2588,18 @@ const get_value_from_field = (field, quantity, product) => {
         product: product.id,
         openingQuantity: product.quantity,
         return: quantity,
+      };
+    case "outletCollected":
+      return {
+        product: product.id,
+        openingQuantity: product.quantity,
+        outletCollected: quantity,
+      };
+    case "outletReturn":
+      return {
+        product: product.id,
+        openingQuantity: product.quantity,
+        outletReturn: quantity,
       };
     case "terminalCollected":
       return {
@@ -1998,8 +2646,8 @@ const get_value_from_field = (field, quantity, product) => {
   }
 };
 
-// Query for update products in terminal daily sales record
-const get_query_from_terminal_field = (field, quantity) => {
+// Query for update products in outlet daily sales record
+const get_query_from_outlet_field = (field, quantity) => {
   switch (field) {
     case "collected":
       return { "products.$.collected": quantity };
@@ -2010,8 +2658,8 @@ const get_query_from_terminal_field = (field, quantity) => {
   }
 };
 
-// Value for new product in terminal daily sales record
-const get_value_from_terminal_field = (
+// Value for new product in outlet daily sales record
+const get_value_from_outlet_field = (
   field,
   quantity,
   openingQuantity,

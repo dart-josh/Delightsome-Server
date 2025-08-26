@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const dangoteCollectionSchema = new mongoose.Schema(
+const collectionSchema = new mongoose.Schema(
   {
     recordDate: {
       type: Date,
@@ -76,9 +76,17 @@ const dangoteCollectionSchema = new mongoose.Schema(
   },
 );
 
-const DangoteCollectionRecord = mongoose.model(
-  "DangoteCollectionRecord",
-  dangoteCollectionSchema,
+export const OutletCollectionRecord = mongoose.model(
+  "OutletCollectionRecord",
+  collectionSchema,
 );
 
-export default DangoteCollectionRecord;
+export const TerminalCollectionRecord = mongoose.model(
+  "TerminalCollectionRecord",
+  collectionSchema,
+);
+
+export const DangoteCollectionRecord = mongoose.model(
+  "DangoteCollectionRecord",
+  collectionSchema,
+);

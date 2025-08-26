@@ -69,14 +69,30 @@ const salesSchema = new mongoose.Schema(
     saleType: {
       type: String,
       required: true,
-      enum: ['store', 'online']
-    }
+      enum: ["store", "online"],
+    },
   },
   {
     timestamps: true,
   },
 );
 
-const SalesRecord = mongoose.model("SalesRecord", salesSchema);
+export const StoreSalesRecord = mongoose.model(
+  "StoreSalesRecord",
+  salesSchema,
+);
 
-export default SalesRecord;
+export const OutletSalesRecord = mongoose.model(
+  "OutletSalesRecord",
+  salesSchema,
+);
+
+export const TerminalSalesRecord = mongoose.model(
+  "TerminalSalesRecord",
+  salesSchema,
+);
+
+export const DangoteSalesRecord = mongoose.model(
+  "DangoteSalesRecord",
+  salesSchema,
+);
