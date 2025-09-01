@@ -1331,6 +1331,7 @@ export const enter_new_outlet_sale = async (req, res) => {
       splitPaymentMethod,
       discountPrice,
       soldBy,
+      saleType: 'store',
     });
 
     await newSale.save();
@@ -1484,6 +1485,7 @@ export const enter_new_terminal_sale = async (req, res) => {
       splitPaymentMethod,
       discountPrice,
       soldBy,
+      saleType: 'store',
     });
 
     await newSale.save();
@@ -1637,6 +1639,7 @@ export const enter_new_dangote_sale = async (req, res) => {
       splitPaymentMethod,
       discountPrice,
       soldBy,
+      saleType: 'store',
     });
 
     await newSale.save();

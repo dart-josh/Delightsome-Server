@@ -6,9 +6,9 @@ import storeRoutes from "./routes/store.route.js"
 import salesRoutes from "./routes/sales.route.js"
 import usersRoutes from "./routes/users.route.js"
 import materialsRoutes from "./routes/materials.route.js"
+import authRoutes from "./routes/auth.route.js"
 import { app, server } from "./socket/socket.js";
 import db_listeners from "./socket/listeners.js"
-import authRoutes from "./routes/auth.route.js"
 import cors from "cors"
 
 
@@ -25,7 +25,6 @@ app.use(cors({
 const PORT = process.env.PORT || 3001;
 
 app.use(express.json()); // allows you to parse json from req.body
-
 
 // ROUTES
 app.use("/api/productstore", storeRoutes)
@@ -44,7 +43,4 @@ server.listen(PORT, () => {
   console.log("Server started on port", PORT);
 
   connectDB();
-
-  // start listeners
-  db_listeners();
 });
