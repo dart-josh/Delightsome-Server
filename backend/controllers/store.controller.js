@@ -1551,6 +1551,243 @@ export const add_update_product = async (req, res) => {
   }
 };
 
+// Add/update outlet products
+export const add_update_outlet_product = async (req, res) => {
+  // get values from body
+  const {
+    id,
+    name,
+    code,
+    category,
+    quantity,
+    restockLimit,
+    storePrice,
+    isAvailable,
+  } = req.body;
+
+  // verify fields
+  if (!name || !category || !storePrice) {
+    return res.status(500).json({ message: "Enter all required fields" });
+  }
+
+  const findCategory = await ProductCategory.findOne({ category });
+
+  if (!findCategory) {
+    return res.status(500).json({ message: "Category not found" });
+  }
+
+  const sort = findCategory.sort;
+
+  // if id is undefined CREATE
+  if (!id) {
+    return res.status(500).json({ message: "Invalid Product" });
+  }
+
+  try {
+    // check if _id is valid
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(500).json({ message: "ID not valid" });
+    }
+
+    // Check if product exist
+    const productExists = await OutletProduct.findById(id);
+    if (!productExists) {
+      return res.status(500).json({ message: "Product does not exist" });
+    }
+
+    const nameExists = await OutletProduct.findOne({ name });
+
+    // if name already exist return error
+    if (nameExists && nameExists._id != id) {
+      return res.status(500).json({ message: "Product already exist" });
+    }
+
+    const product = await OutletProduct.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          name,
+          code,
+          category,
+          quantity,
+          restockLimit,
+          storePrice,
+          isAvailable,
+          sort,
+        },
+      },
+      { new: true },
+    );
+    res.json({ message: "Outlet Product Updated", product });
+
+    // update products
+    io.emit("OutletProduct");
+  } catch (error) {
+    console.log("Error in add_update_outlet_products: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+// Add/update terminal products
+export const add_update_terminal_product = async (req, res) => {
+  // get values from body
+  const {
+    id,
+    name,
+    code,
+    category,
+    quantity,
+    restockLimit,
+    storePrice,
+    isAvailable,
+  } = req.body;
+
+  // verify fields
+  if (!name || !category || !storePrice) {
+    return res.status(500).json({ message: "Enter all required fields" });
+  }
+
+  const findCategory = await ProductCategory.findOne({ category });
+
+  if (!findCategory) {
+    return res.status(500).json({ message: "Category not found" });
+  }
+
+  const sort = findCategory.sort;
+
+  // if id is undefined CREATE
+  if (!id) {
+    return res.status(500).json({ message: "Invalid Product" });
+  }
+
+  try {
+    // check if _id is valid
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(500).json({ message: "ID not valid" });
+    }
+
+    // Check if product exist
+    const productExists = await TerminalProduct.findById(id);
+    if (!productExists) {
+      return res.status(500).json({ message: "Product does not exist" });
+    }
+
+    const nameExists = await TerminalProduct.findOne({ name });
+
+    // if name already exist return error
+    if (nameExists && nameExists._id != id) {
+      return res.status(500).json({ message: "Product already exist" });
+    }
+
+    const product = await TerminalProduct.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          name,
+          code,
+          category,
+          quantity,
+          restockLimit,
+          storePrice,
+          isAvailable,
+          sort,
+        },
+      },
+      { new: true },
+    );
+    res.json({ message: "Terminal Product Updated", product });
+
+    // update products
+    io.emit("TerminalProduct");
+  } catch (error) {
+    console.log("Error in add_update_terminal_products: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
+// Add/update dangote products
+export const add_update_dangote_product = async (req, res) => {
+  // get values from body
+  const {
+    id,
+    name,
+    code,
+    category,
+    quantity,
+    restockLimit,
+    storePrice,
+    isAvailable,
+  } = req.body;
+
+  // verify fields
+  if (!name || !category || !storePrice) {
+    return res.status(500).json({ message: "Enter all required fields" });
+  }
+
+  const findCategory = await ProductCategory.findOne({ category });
+
+  if (!findCategory) {
+    return res.status(500).json({ message: "Category not found" });
+  }
+
+  const sort = findCategory.sort;
+
+  // if id is undefined CREATE
+  if (!id) {
+    return res.status(500).json({ message: "Invalid Product" });
+  }
+
+  try {
+    // check if _id is valid
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(500).json({ message: "ID not valid" });
+    }
+
+    // Check if product exist
+    const productExists = await DangoteProduct.findById(id);
+    if (!productExists) {
+      return res.status(500).json({ message: "Product does not exist" });
+    }
+
+    const nameExists = await DangoteProduct.findOne({ name });
+
+    // if name already exist return error
+    if (nameExists && nameExists._id != id) {
+      return res.status(500).json({ message: "Product already exist" });
+    }
+
+    const product = await DangoteProduct.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          name,
+          code,
+          category,
+          quantity,
+          restockLimit,
+          storePrice,
+          isAvailable,
+          sort,
+        },
+      },
+      { new: true },
+    );
+    res.json({ message: "Dangote Product Updated", product });
+
+    // update products
+    io.emit("DangoteProduct");
+  } catch (error) {
+    console.log("Error in add_update_dangote_products: ", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal Server error", error: error.message });
+  }
+};
+
 //? Enter production record
 export const enter_production_record = async (req, res) => {
   // get values from body
@@ -3207,9 +3444,7 @@ export const verify_outletCollection_record = async (req, res) => {
 
   // update daily record ( outletCollected | outletReturn )
   const field =
-    record.collectionType == "Collected"
-      ? "outletCollected"
-      : "outletReturn";
+    record.collectionType == "Collected" ? "outletCollected" : "outletReturn";
   try {
     const response = await enter_daily_store_record({
       date: record.recordDate.toISOString(),
