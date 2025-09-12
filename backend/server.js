@@ -11,7 +11,6 @@ import { app, server } from "./socket/socket.js";
 import db_listeners from "./socket/listeners.js"
 import cors from "cors"
 
-
 dotenv.config();
 
 app.use(cors({
